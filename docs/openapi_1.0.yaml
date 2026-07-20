@@ -1,0 +1,1229 @@
+openapi: 3.0.3
+info:
+  title: 广告设计公司客户对接平台 API
+  version: "1.0.0"
+  description: 1.0 后端接口定义，可导入 Swagger UI 或 YApi。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+tags:
+  - name: Auth
+    description: 认证接口
+  - name: User
+    description: 用户接口
+  - name: PortfolioCase
+    description: 作品案例接口
+  - name: Project
+    description: 项目接口
+  - name: Stage
+    description: 项目阶段接口
+  - name: Conversation
+    description: 会话与消息接口
+  - name: File
+    description: 文件接口
+  - name: OperationLog
+    description: 操作日志接口
+security:
+  - bearerAuth: []
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: 邮箱密码登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LoginResponse"
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: 客户注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserVO"
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: 获取当前登录用户
+      responses:
+        "200":
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserVO"
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 退出登录
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/users/me:
+    put:
+      tags: [User]
+      summary: 更新当前用户资料
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: 更新后的用户信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserVO"
+  /api/portfolio-cases:
+    get:
+      tags: [PortfolioCase]
+      summary: 作品案例列表
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Industry"
+        - $ref: "#/components/parameters/Style"
+        - $ref: "#/components/parameters/ServiceType"
+        - $ref: "#/components/parameters/Keyword"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 作品案例分页
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PortfolioCasePage"
+    post:
+      tags: [PortfolioCase]
+      summary: 新增作品案例
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioCaseRequest"
+      responses:
+        "200":
+          description: 作品案例详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PortfolioCaseVO"
+  /api/portfolio-cases/{id}:
+    get:
+      tags: [PortfolioCase]
+      summary: 作品案例详情
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 作品案例详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PortfolioCaseVO"
+    put:
+      tags: [PortfolioCase]
+      summary: 更新作品案例
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortfolioCaseRequest"
+      responses:
+        "200":
+          description: 更新后的作品案例
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PortfolioCaseVO"
+    delete:
+      tags: [PortfolioCase]
+      summary: 删除或下线作品案例
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/projects:
+    get:
+      tags: [Project]
+      summary: 当前用户项目列表
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: currentStage
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Keyword"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 项目分页
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectPage"
+    post:
+      tags: [Project]
+      summary: 新增项目
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "200":
+          description: 项目详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectVO"
+  /api/projects/{id}:
+    get:
+      tags: [Project]
+      summary: 项目详情
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: 项目详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectVO"
+    put:
+      tags: [Project]
+      summary: 更新项目
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: 项目详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectVO"
+    delete:
+      tags: [Project]
+      summary: 删除或取消项目
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/projects/{projectId}/stages:
+    get:
+      tags: [Stage]
+      summary: 项目阶段列表
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: 项目阶段列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProjectStageVO"
+  /api/projects/{projectId}/stages/{stageCode}/actions:
+    post:
+      tags: [Stage]
+      summary: 发起阶段确认
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: stageCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStageActionRequest"
+      responses:
+        "200":
+          description: 阶段动作详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/StageActionVO"
+  /api/stage-actions/{actionId}/confirm:
+    post:
+      tags: [Stage]
+      summary: 确认阶段动作
+      parameters:
+        - $ref: "#/components/parameters/ActionId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StageActionResponseRequest"
+      responses:
+        "200":
+          description: 阶段动作详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/StageActionVO"
+  /api/stage-actions/{actionId}/reject:
+    post:
+      tags: [Stage]
+      summary: 驳回阶段动作
+      parameters:
+        - $ref: "#/components/parameters/ActionId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StageActionResponseRequest"
+      responses:
+        "200":
+          description: 阶段动作详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/StageActionVO"
+  /api/projects/{projectId}/stage-actions:
+    get:
+      tags: [Stage]
+      summary: 阶段动作列表
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: stageCode
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 阶段动作列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/StageActionVO"
+  /api/conversations:
+    get:
+      tags: [Conversation]
+      summary: 当前用户会话列表
+      responses:
+        "200":
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ConversationVO"
+  /api/conversations/{conversationId}/messages:
+    get:
+      tags: [Conversation]
+      summary: 会话消息列表
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+        - name: beforeMessageId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 消息游标分页
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MessageCursorPage"
+    post:
+      tags: [Conversation]
+      summary: 发送消息
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "200":
+          description: 消息详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/MessageVO"
+  /api/conversations/{conversationId}/read:
+    post:
+      tags: [Conversation]
+      summary: 标记会话已读
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkReadRequest"
+      responses:
+        "200":
+          description: 已读状态
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConversationReadStateVO"
+  /api/messages/{messageId}:
+    delete:
+      tags: [Conversation]
+      summary: 删除消息
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/files:
+    post:
+      tags: [File]
+      summary: 上传文件
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: 文件详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FileAssetVO"
+  /api/files/{fileId}:
+    get:
+      tags: [File]
+      summary: 文件详情
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: 文件详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FileAssetVO"
+    delete:
+      tags: [File]
+      summary: 删除文件
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/files/{fileId}/download:
+    get:
+      tags: [File]
+      summary: 下载文件
+      parameters:
+        - $ref: "#/components/parameters/FileId"
+      responses:
+        "200":
+          description: 文件流
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/projects/{projectId}/files:
+    get:
+      tags: [File]
+      summary: 项目文件列表
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: stageCode
+          in: query
+          schema:
+            type: string
+        - name: fileRole
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 项目文件列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProjectFileVO"
+    post:
+      tags: [File]
+      summary: 归档项目文件
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectFileRequest"
+      responses:
+        "200":
+          description: 项目文件详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectFileVO"
+  /api/project-files/{projectFileId}:
+    delete:
+      tags: [File]
+      summary: 删除项目文件归档
+      parameters:
+        - name: projectFileId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          $ref: "#/components/responses/BooleanResult"
+  /api/projects/{projectId}/operation-logs:
+    get:
+      tags: [OperationLog]
+      summary: 项目操作日志
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: bizType
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 操作日志分页
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Result"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OperationLogPage"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BooleanResult:
+      description: 布尔结果
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/Result"
+              - type: object
+                properties:
+                  data:
+                    type: boolean
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    FileId:
+      name: fileId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 10
+    Keyword:
+      name: keyword
+      in: query
+      schema:
+        type: string
+    Industry:
+      name: industry
+      in: query
+      schema:
+        type: string
+    Style:
+      name: style
+      in: query
+      schema:
+        type: string
+    ServiceType:
+      name: serviceType
+      in: query
+      schema:
+        type: string
+  schemas:
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          nullable: true
+    PageResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        size:
+          type: integer
+        pages:
+          type: integer
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          example: customer@example.com
+        password:
+          type: string
+          format: password
+          example: "123456"
+    RegisterRequest:
+      type: object
+      required: [email, password, nickname]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          format: password
+        nickname:
+          type: string
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserVO"
+    UpdateUserRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+        avatar:
+          type: string
+        phone:
+          type: string
+    UserVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+        nickname:
+          type: string
+        role:
+          type: string
+          enum: [CUSTOMER, DESIGNER]
+        avatar:
+          type: string
+    PortfolioCaseRequest:
+      type: object
+      required: [title, industry, style, serviceType, coverUrl, description]
+      properties:
+        title:
+          type: string
+        industry:
+          type: string
+        style:
+          type: string
+        serviceType:
+          type: string
+        coverUrl:
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, OFFLINE]
+    PortfolioCaseVO:
+      allOf:
+        - $ref: "#/components/schemas/PortfolioCaseRequest"
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            createdAt:
+              type: string
+            updatedAt:
+              type: string
+    PortfolioCasePage:
+      allOf:
+        - $ref: "#/components/schemas/PageResult"
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: "#/components/schemas/PortfolioCaseVO"
+    CreateProjectRequest:
+      type: object
+      required: [name, customerId, designerId]
+      properties:
+        name:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+        designerId:
+          type: integer
+          format: int64
+        description:
+          type: string
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        designerId:
+          type: integer
+          format: int64
+        description:
+          type: string
+        status:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED, PAUSED, CANCELLED]
+    ProjectVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+        customerName:
+          type: string
+        designerId:
+          type: integer
+          format: int64
+        designerName:
+          type: string
+        currentStage:
+          type: string
+        currentStageName:
+          type: string
+        status:
+          type: string
+        progress:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    ProjectPage:
+      allOf:
+        - $ref: "#/components/schemas/PageResult"
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProjectVO"
+    ProjectStageVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        stageCode:
+          type: string
+        stageName:
+          type: string
+        sortOrder:
+          type: integer
+        status:
+          type: string
+          enum: [TODO, PENDING_CONFIRM, REACHED, REJECTED]
+        reachedAt:
+          type: string
+    CreateStageActionRequest:
+      type: object
+      properties:
+        requestNote:
+          type: string
+    StageActionResponseRequest:
+      type: object
+      properties:
+        responseNote:
+          type: string
+    StageActionVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        projectStageId:
+          type: integer
+          format: int64
+        stageCode:
+          type: string
+        initiatorId:
+          type: integer
+          format: int64
+        initiatorRole:
+          type: string
+          enum: [CUSTOMER, DESIGNER]
+        confirmUserId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, REJECTED, CANCELLED]
+        requestNote:
+          type: string
+        responseNote:
+          type: string
+        requestedAt:
+          type: string
+        respondedAt:
+          type: string
+    ConversationVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        projectId:
+          type: integer
+          format: int64
+        projectName:
+          type: string
+        customerId:
+          type: integer
+          format: int64
+        customerName:
+          type: string
+        designerId:
+          type: integer
+          format: int64
+        designerName:
+          type: string
+        lastMessage:
+          type: string
+        lastMessageAt:
+          type: string
+        unreadCount:
+          type: integer
+    SendMessageRequest:
+      type: object
+      required: [messageType]
+      properties:
+        messageType:
+          type: string
+          enum: [TEXT, IMAGE, FILE, EMOJI]
+        content:
+          type: string
+        fileIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        clientMessageId:
+          type: string
+    MessageVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        conversationId:
+          type: integer
+          format: int64
+        senderId:
+          type: integer
+          format: int64
+        senderRole:
+          type: string
+          enum: [CUSTOMER, DESIGNER, SYSTEM]
+        senderName:
+          type: string
+        messageType:
+          type: string
+          enum: [TEXT, IMAGE, FILE, EMOJI, SYSTEM]
+        content:
+          type: string
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileAssetVO"
+        createdAt:
+          type: string
+    MessageCursorPage:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageVO"
+        hasMore:
+          type: boolean
+    MarkReadRequest:
+      type: object
+      required: [lastReadMessageId]
+      properties:
+        lastReadMessageId:
+          type: integer
+          format: int64
+    ConversationReadStateVO:
+      type: object
+      properties:
+        conversationId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        lastReadMessageId:
+          type: integer
+          format: int64
+        lastReadAt:
+          type: string
+        unreadCount:
+          type: integer
+    FileAssetVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        originalName:
+          type: string
+        url:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [ACTIVE, DELETED]
+    CreateProjectFileRequest:
+      type: object
+      required: [fileId]
+      properties:
+        fileId:
+          type: integer
+          format: int64
+        projectStageId:
+          type: integer
+          format: int64
+        stageCode:
+          type: string
+        fileRole:
+          type: string
+          enum: [MATERIAL, REPORT, DRAFT, FINAL, CONTRACT, DELIVERABLE, OTHER]
+        description:
+          type: string
+    ProjectFileVO:
+      allOf:
+        - $ref: "#/components/schemas/CreateProjectFileRequest"
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            projectId:
+              type: integer
+              format: int64
+            file:
+              $ref: "#/components/schemas/FileAssetVO"
+            createdAt:
+              type: string
+    OperationLogVO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        operatorRole:
+          type: string
+        bizType:
+          type: string
+        bizId:
+          type: integer
+          format: int64
+        action:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+    OperationLogPage:
+      allOf:
+        - $ref: "#/components/schemas/PageResult"
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                $ref: "#/components/schemas/OperationLogVO"
