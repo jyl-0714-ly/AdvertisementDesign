@@ -101,14 +101,22 @@ function statusClass(status: string) {
 }
 
 async function load() {
-  const [projectPage, conversationList, casePage] = await Promise.all([
-    listProjects({ page: 1, size: 50 }),
-    listConversations(),
-    listPortfolioCases({ page: 1, size: 8 })
-  ])
-  projects.value = projectPage.records
-  conversations.value = conversationList
-  cases.value = casePage.records
+  try {
+    const [projectPage, conversationList, casePage] = await Promise.all([
+      listProjects({ page: 1, size: 50 }),
+      listConversations(),
+      listPortfolioCases({ page: 1, size: 8 })
+    ])
+    projects.value = projectPage.records
+    conversations.value = conversationList
+    cases.value = casePage.records
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败')
+  }
+}
+
+function openProject(id: number) {
+  router.push(`/projects/${id}`)
 }
 
 async function submitCreate() {

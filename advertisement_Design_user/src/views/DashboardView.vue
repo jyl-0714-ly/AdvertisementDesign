@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { ChatDotRound, FolderOpened, House, PictureRounded } from '@element-plus/icons-vue'
 import PageSection from '@/components/PageSection.vue'
 import StatCard from '@/components/StatCard.vue'
@@ -92,6 +93,8 @@ async function load() {
     projects.value = projectPage.records
     conversations.value = conversationList
     cases.value = casePage.records
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败')
   }
 }
 
