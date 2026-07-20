@@ -1,0 +1,5 @@
+interface:
+  display_name: "广告平台后端规范"
+  short_description: "广告平台 Spring Boot 后端开发规范"
+  default_prompt: "Use $ad-springboot-backend-standards to implement backend code for advertisement_Design_back."
+
