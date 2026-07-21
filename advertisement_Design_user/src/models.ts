@@ -175,3 +175,20 @@ export interface SendMessageRequest {
   fileIds?: number[] | null
   clientMessageId?: string | null
 }
+
+export interface StageActionVO {
+  id: number
+  projectId: number
+  projectStageId: number
+  stageCode: string
+  initiatorId: number
+  initiatorRole: MessageSenderRole
+  confirmUserId: number
+  status: StageActionStatus
+  requestNote?: string | null
+  responseNote?: string | null
+  requestedAt?: string | null
+  respondedAt?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}

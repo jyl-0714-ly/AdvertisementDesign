@@ -2,6 +2,7 @@ import type {
   ConversationReadStateVO,
   ConversationVO,
   CreateProjectFileRequest,
+  FileAssetVO,
   LoginResponse,
   MarkReadRequest,
   MessageCursorPage,
@@ -13,6 +14,7 @@ import type {
   ProjectVO,
   Result,
   SendMessageRequest,
+  StageActionVO,
   UpdateUserRequest,
   UserVO
 } from './models'
@@ -156,6 +158,12 @@ export function sendMessage(conversationId: number, payload: SendMessageRequest)
   })
 }
 
+export async function uploadFile(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<FileAssetVO>('/files', { method: 'POST', body })
+}
+
 export function markConversationRead(conversationId: number, payload: MarkReadRequest) {
   return request<ConversationReadStateVO>(`/conversations/${conversationId}/read`, {
     method: 'POST',
@@ -180,4 +188,29 @@ export function deleteProjectFile(id: number) {
 
 export function downloadFile(fileId: number) {
   return requestBlob(`/files/${fileId}/download`, { method: 'GET' })
+}
+
+export function listStageActions(projectId: number) {
+  return request<StageActionVO[]>(`/projects/${projectId}/stage-actions`)
+}
+
+export function createStageAction(projectId: number, stageCode: string, requestNote: string) {
+  return request<StageActionVO>(`/projects/${projectId}/stages/${stageCode}/actions`, {
+    method: 'POST',
+    body: JSON.stringify({ requestNote })
+  })
+}
+
+export function confirmStageAction(actionId: number, responseNote = '') {
+  return request<StageActionVO>(`/stage-actions/${actionId}/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ responseNote })
+  })
+}
+
+export function rejectStageAction(actionId: number, responseNote = '') {
+  return request<StageActionVO>(`/stage-actions/${actionId}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ responseNote })
+  })
 }
