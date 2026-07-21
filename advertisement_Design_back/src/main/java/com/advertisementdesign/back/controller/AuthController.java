@@ -25,6 +25,27 @@ public class AuthController {
         return Result.success(authService.login(request));
     }
 
+    @Operation(summary = "发送邮箱验证码")
+    @PostMapping("/email-codes")
+    public Result<AuthModels.SendEmailCodeResponse> sendEmailCode(
+            @Valid @org.springframework.web.bind.annotation.RequestBody AuthModels.SendEmailCodeRequest request) {
+        return Result.success(authService.sendEmailCode(request));
+    }
+
+    @Operation(summary = "邮箱验证码登录")
+    @PostMapping("/login-by-email-code")
+    public Result<AuthModels.LoginResponse> loginByEmailCode(
+            @Valid @org.springframework.web.bind.annotation.RequestBody AuthModels.EmailCodeLoginRequest request) {
+        return Result.success(authService.loginByEmailCode(request));
+    }
+
+    @Operation(summary = "重置客户密码")
+    @PostMapping("/reset-password")
+    public Result<Boolean> resetPassword(
+            @Valid @org.springframework.web.bind.annotation.RequestBody AuthModels.ResetPasswordRequest request) {
+        return Result.success(authService.resetPassword(request));
+    }
+
     @Operation(summary = "客户注册")
     @PostMapping("/register")
     public Result<AuthModels.UserVO> register(@Valid @org.springframework.web.bind.annotation.RequestBody AuthModels.RegisterRequest request) {

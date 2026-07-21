@@ -8,3 +8,4 @@ dist/
 */tsconfig.*.tsbuildinfo
 */vite.config.js
 */vite.config.d.ts
+advertisement_Design_back/src/main/resources/application-local.yml

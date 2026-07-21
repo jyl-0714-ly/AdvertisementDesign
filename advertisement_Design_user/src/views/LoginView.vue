@@ -58,7 +58,7 @@
             <el-input
               v-model="form.account"
               autocomplete="email"
-              placeholder="请输入邮箱"
+              placeholder="请输入 QQ 邮箱或网易邮箱"
               :prefix-icon="User"
               size="large"
             />
@@ -81,13 +81,14 @@
             <div class="verify-row">
               <el-input
                 v-model="form.emailCode"
+                maxlength="6"
                 autocomplete="one-time-code"
                 placeholder="请输入邮箱验证码"
                 :prefix-icon="Message"
                 size="large"
               />
-              <button type="button" class="verify-btn" :disabled="codeCooldown > 0" @click="sendEmailCode">
-                {{ codeCooldown > 0 ? `${codeCooldown}s` : '获取验证码' }}
+              <button type="button" class="verify-btn" :disabled="codeCooldown > 0 || codeSending" @click="sendEmailCode">
+                {{ codeSending ? '发送中...' : codeCooldown > 0 ? `${codeCooldown}s` : '获取验证码' }}
               </button>
             </div>
           </el-form-item>
@@ -107,6 +108,29 @@
         </el-form>
       </section>
     </main>
+
+    <el-dialog v-model="registerVisible" class="auth-dialog" title="注册客户账号" width="420px" align-center destroy-on-close>
+      <p class="dialog-tip">仅支持 QQ 邮箱和网易邮箱，完成邮箱验证后才能注册。</p>
+      <el-form class="dialog-form" label-position="top" @submit.prevent="submitRegister">
+        <el-form-item label="邮箱"><el-input v-model="registerForm.email" placeholder="QQ / 163 / 126 / yeah.net" autocomplete="email" /></el-form-item>
+        <el-form-item label="邮箱验证码"><div class="dialog-code-row"><el-input v-model="registerForm.code" maxlength="6" placeholder="请输入 6 位验证码" autocomplete="one-time-code" /><button type="button" class="verify-btn dialog-code-button" :disabled="registerCooldown > 0 || registerCodeSending" @click="sendRegisterCode">{{ registerCodeSending ? '发送中...' : registerCooldown ? `${registerCooldown}s` : '获取验证码' }}</button></div></el-form-item>
+        <el-form-item label="昵称"><el-input v-model="registerForm.nickname" placeholder="请输入昵称" autocomplete="nickname" /></el-form-item>
+        <el-form-item label="密码"><el-input v-model="registerForm.password" type="password" show-password placeholder="至少 6 位" autocomplete="new-password" /></el-form-item>
+        <el-form-item label="确认密码"><el-input v-model="registerForm.confirmPassword" type="password" show-password placeholder="请再次输入密码" autocomplete="new-password" /></el-form-item>
+        <el-button class="dialog-submit" type="primary" native-type="submit" :loading="registering">注册</el-button>
+      </el-form>
+    </el-dialog>
+
+    <el-dialog v-model="resetVisible" class="auth-dialog" title="重置密码" width="420px" align-center destroy-on-close>
+      <p class="dialog-tip">验证码将发送到已注册邮箱，60 秒内有效。</p>
+      <el-form class="dialog-form" label-position="top" @submit.prevent="submitReset">
+        <el-form-item label="邮箱"><el-input v-model="resetForm.email" placeholder="请输入注册邮箱" autocomplete="email" /></el-form-item>
+        <el-form-item label="邮箱验证码"><div class="dialog-code-row"><el-input v-model="resetForm.code" maxlength="6" placeholder="请输入 6 位验证码" autocomplete="one-time-code" /><button type="button" class="verify-btn dialog-code-button" :disabled="resetCooldown > 0 || resetCodeSending" @click="sendResetCode">{{ resetCodeSending ? '发送中...' : resetCooldown ? `${resetCooldown}s` : '获取验证码' }}</button></div></el-form-item>
+        <el-form-item label="新密码"><el-input v-model="resetForm.password" type="password" show-password placeholder="至少 6 位" autocomplete="new-password" /></el-form-item>
+        <el-form-item label="确认新密码"><el-input v-model="resetForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" autocomplete="new-password" /></el-form-item>
+        <el-button class="dialog-submit" type="primary" native-type="submit" :loading="resetting">确认重置</el-button>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
@@ -115,6 +139,7 @@ import { onBeforeUnmount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Message, User } from '@element-plus/icons-vue'
+import { registerCustomer, resetCustomerPassword, sendAuthEmailCode } from '@/api'
 import BrandMark from '@/components/BrandMark.vue'
 import { appName, appSubTitle } from '@/config'
 import { useAuthStore } from '@/stores/auth'
@@ -127,72 +152,209 @@ const auth = useAuthStore()
 const loading = ref(false)
 const loginMode = ref<LoginMode>('password')
 const codeCooldown = ref(0)
+const registerCooldown = ref(0)
+const resetCooldown = ref(0)
+const codeSending = ref(false)
+const registerCodeSending = ref(false)
+const resetCodeSending = ref(false)
+const registerVisible = ref(false)
+const resetVisible = ref(false)
+const registering = ref(false)
+const resetting = ref(false)
 let codeTimer: ReturnType<typeof window.setInterval> | undefined
+let registerTimer: ReturnType<typeof window.setInterval> | undefined
+let resetTimer: ReturnType<typeof window.setInterval> | undefined
 
 const form = reactive({
-  account: 'customer@example.com',
+  account: 'customer@163.com',
   password: '123456',
   emailCode: ''
 })
+const registerForm = reactive({ email: '', code: '', nickname: '', password: '', confirmPassword: '' })
+const resetForm = reactive({ email: '', code: '', password: '', confirmPassword: '' })
+
+function isSupportedEmail(value: string) {
+  return /^[A-Za-z0-9._%+-]+@(qq\.com|163\.com|126\.com|yeah\.net)$/i.test(value.trim())
+}
 
 function fillCustomer() {
-  form.account = 'customer@example.com'
+  form.account = 'customer@163.com'
   form.password = '123456'
   form.emailCode = '123456'
 }
 
-function sendEmailCode() {
-  if (!form.account) {
-    ElMessage.warning('请先输入邮箱')
-    return
-  }
-  form.emailCode = '123456'
-  codeCooldown.value = 60
-  ElMessage.success('验证码已发送至邮箱，演示验证码为 123456')
-  if (codeTimer) window.clearInterval(codeTimer)
-  codeTimer = window.setInterval(() => {
-    codeCooldown.value -= 1
-    if (codeCooldown.value <= 0 && codeTimer) {
-      window.clearInterval(codeTimer)
-      codeTimer = undefined
+async function startCooldown(kind: 'login' | 'register' | 'reset') {
+  const target = kind === 'login' ? codeCooldown : kind === 'register' ? registerCooldown : resetCooldown
+  const previousTimer = kind === 'login' ? codeTimer : kind === 'register' ? registerTimer : resetTimer
+  if (previousTimer) window.clearInterval(previousTimer)
+  target.value = 60
+  const timer = window.setInterval(() => {
+    target.value -= 1
+    if (target.value <= 0) {
+      window.clearInterval(timer)
+      if (kind === 'login') codeTimer = undefined
+      else if (kind === 'register') registerTimer = undefined
+      else resetTimer = undefined
     }
   }, 1000)
+  if (kind === 'login') codeTimer = timer
+  else if (kind === 'register') registerTimer = timer
+  else resetTimer = timer
+}
+
+async function sendEmailCode() {
+  if (codeSending.value || codeCooldown.value > 0) return
+  if (!isSupportedEmail(form.account)) {
+    setLoginError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。')
+    return
+  }
+  try {
+    codeSending.value = true
+    await sendAuthEmailCode(form.account, 'LOGIN')
+    await startCooldown('login')
+    ElMessage.success('验证码已发送至邮箱，60 秒内有效。')
+  } catch (error) {
+    setLoginError(messageOf(error))
+  } finally {
+    codeSending.value = false
+  }
+}
+
+async function sendResetCode() {
+  if (resetCodeSending.value || resetCooldown.value > 0) return
+  if (!isSupportedEmail(resetForm.email)) {
+    setResetError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。')
+    return
+  }
+  try {
+    resetCodeSending.value = true
+    await sendAuthEmailCode(resetForm.email, 'RESET_PASSWORD')
+    await startCooldown('reset')
+    ElMessage.success('验证码已发送至邮箱，60 秒内有效。')
+  } catch (error) {
+    setResetError(messageOf(error))
+  } finally {
+    resetCodeSending.value = false
+  }
+}
+
+function messageOf(error: unknown) {
+  const message = error instanceof Error ? error.message : '操作失败，请稍后重试。'
+  if (message.includes('未登录') || message.includes('邮箱或密码')) return '邮箱或密码错误，请检查后重试。'
+  return message
+}
+
+async function sendRegisterCode() {
+  if (registerCodeSending.value || registerCooldown.value > 0) return
+  if (!isSupportedEmail(registerForm.email)) {
+    setRegisterError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。')
+    return
+  }
+  try {
+    registerCodeSending.value = true
+    await sendAuthEmailCode(registerForm.email.trim(), 'REGISTER')
+    await startCooldown('register')
+    ElMessage.success('验证码已发送至邮箱，60 秒内有效。')
+  } catch (error) {
+    setRegisterError(messageOf(error))
+  } finally {
+    registerCodeSending.value = false
+  }
+}
+
+function setLoginError(message: string) {
+  ElMessage.error(message)
+}
+
+function setRegisterError(message: string) {
+  ElMessage.error(message)
+}
+
+function setResetError(message: string) {
+  ElMessage.error(message)
 }
 
 function forgotPassword() {
-  ElMessage.info('忘记密码功能将在后续版本接入')
+  resetForm.email = form.account
+  resetForm.code = ''
+  resetForm.password = ''
+  resetForm.confirmPassword = ''
+  resetVisible.value = true
 }
 
 function register() {
-  ElMessage.info('注册功能将在后续版本接入')
+  registerForm.email = form.account.includes('@') ? form.account : ''
+  registerForm.code = ''
+  registerForm.nickname = ''
+  registerForm.password = ''
+  registerForm.confirmPassword = ''
+  registerVisible.value = true
+}
+
+async function submitRegister() {
+  if (!isSupportedEmail(registerForm.email)) { setRegisterError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。'); return }
+  if (!/^\d{6}$/.test(registerForm.code)) { setRegisterError('请输入 6 位数字验证码。'); return }
+  if (!registerForm.nickname.trim()) { setRegisterError('请输入昵称。'); return }
+  if (registerForm.password.length < 6) { setRegisterError('密码长度不能少于 6 位。'); return }
+  if (registerForm.password !== registerForm.confirmPassword) { setRegisterError('两次输入的密码不一致。'); return }
+  try {
+    registering.value = true
+    await registerCustomer({ email: registerForm.email.trim(), code: registerForm.code, nickname: registerForm.nickname.trim(), password: registerForm.password })
+    form.account = registerForm.email.trim()
+    form.password = registerForm.password
+    loginMode.value = 'password'
+    registerVisible.value = false
+    ElMessage.success('注册成功，请登录。')
+  } catch (error) {
+    setRegisterError(messageOf(error))
+  } finally {
+    registering.value = false
+  }
+}
+
+async function submitReset() {
+  if (!isSupportedEmail(resetForm.email)) { setResetError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。'); return }
+  if (!/^\d{6}$/.test(resetForm.code)) { setResetError('请输入 6 位数字验证码。'); return }
+  if (resetForm.password.length < 6) { setResetError('密码长度不能少于 6 位。'); return }
+  if (resetForm.password !== resetForm.confirmPassword) { setResetError('两次输入的密码不一致。'); return }
+  try {
+    resetting.value = true
+    await resetCustomerPassword(resetForm.email.trim(), resetForm.code.trim(), resetForm.password)
+    form.account = resetForm.email.trim()
+    form.password = resetForm.password
+    loginMode.value = 'password'
+    resetVisible.value = false
+    ElMessage.success('密码已重置，请使用新密码登录。')
+  } catch (error) {
+    setResetError(messageOf(error))
+  } finally {
+    resetting.value = false
+  }
 }
 
 async function submit() {
-  if (!form.account) {
-    ElMessage.warning('请输入邮箱')
+  if (!isSupportedEmail(form.account)) {
+    setLoginError('仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）。')
     return
   }
   if (loginMode.value === 'password' && !form.password) {
-    ElMessage.warning('请输入密码')
+    setLoginError('请输入密码。')
     return
   }
-  if (loginMode.value === 'emailCode' && !form.emailCode) {
-    ElMessage.warning('请输入邮箱验证码')
-    return
-  }
-  if (loginMode.value === 'emailCode' && form.emailCode !== '123456') {
-    ElMessage.error('验证码错误')
+  if (loginMode.value === 'emailCode' && !/^\d{6}$/.test(form.emailCode)) {
+    setLoginError('请输入 6 位数字验证码。')
     return
   }
 
   try {
     loading.value = true
-    await auth.login(form.account, loginMode.value === 'password' ? form.password : '123456')
+    if (loginMode.value === 'password') await auth.login(form.account.trim(), form.password)
+    else await auth.loginByEmailCode(form.account.trim(), form.emailCode.trim())
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
     await router.replace(redirect)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '登录失败')
+    setLoginError(messageOf(error))
   } finally {
     loading.value = false
   }
@@ -200,6 +362,8 @@ async function submit() {
 
 onBeforeUnmount(() => {
   if (codeTimer) window.clearInterval(codeTimer)
+  if (registerTimer) window.clearInterval(registerTimer)
+  if (resetTimer) window.clearInterval(resetTimer)
 })
 </script>
 
@@ -537,6 +701,68 @@ onBeforeUnmount(() => {
 
 .plain-link.strong {
   font-weight: 750;
+}
+
+.auth-dialog .el-dialog {
+  border-radius: 12px;
+}
+
+.auth-dialog .el-dialog__header {
+  margin-right: 0;
+  padding: 22px 24px 15px;
+  border-bottom: 1px solid #e5edf5;
+}
+
+.auth-dialog .el-dialog__title {
+  color: #1e293b;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.auth-dialog .el-dialog__body {
+  padding: 18px 24px 24px;
+}
+
+.dialog-tip {
+  margin: 0 0 16px;
+  color: #728197;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dialog-form .el-form-item {
+  margin-bottom: 14px;
+}
+
+.dialog-form .el-form-item__label {
+  color: #43536a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dialog-form .el-input__wrapper {
+  min-height: 42px;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px #d8e7f3;
+}
+
+.dialog-submit {
+  width: 100%;
+  min-height: 43px;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0ea5e9, #32d2c4);
+}
+
+.dialog-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 8px;
+}
+
+.dialog-code-button {
+  height: 42px;
+  border-radius: 9px;
 }
 
 @media (max-width: 900px) {

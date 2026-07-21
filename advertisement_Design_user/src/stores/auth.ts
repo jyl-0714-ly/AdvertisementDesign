@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { fetchLogin, fetchLogout, fetchMe, updateMe } from '@/api'
+import { fetchLogin, fetchLoginByEmailCode, fetchLogout, fetchMe, updateMe } from '@/api'
 import type { LoginResponse, UpdateUserRequest, UserVO } from '@/models'
 
 const TOKEN_KEY = 'ad-user-token'
@@ -41,6 +41,10 @@ export const useAuthStore = defineStore('auth', {
     },
     async login(email: string, password: string) {
       const payload = await fetchLogin(email, password)
+      this.setSession(payload)
+    },
+    async loginByEmailCode(email: string, code: string) {
+      const payload = await fetchLoginByEmailCode(email, code)
       this.setSession(payload)
     },
     async logout() {

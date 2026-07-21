@@ -36,6 +36,19 @@ export interface LoginResponse {
   user: UserVO
 }
 
+export type EmailCodePurpose = 'REGISTER' | 'LOGIN' | 'RESET_PASSWORD'
+
+export interface SendEmailCodeResponse {
+  expiresInSeconds: number
+}
+
+export interface RegisterRequest {
+  email: string
+  code: string
+  password: string
+  nickname: string
+}
+
 export interface UpdateUserRequest {
   nickname?: string | null
   avatar?: string | null

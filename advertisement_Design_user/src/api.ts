@@ -2,6 +2,7 @@ import type {
   ConversationReadStateVO,
   ConversationVO,
   CreateProjectFileRequest,
+  EmailCodePurpose,
   FileAssetVO,
   LoginResponse,
   MarkReadRequest,
@@ -13,8 +14,10 @@ import type {
   ProjectStageVO,
   ProjectVO,
   Result,
+  SendEmailCodeResponse,
   SendMessageRequest,
   StageActionVO,
+  RegisterRequest,
   UpdateUserRequest,
   UserVO
 } from './models'
@@ -92,6 +95,34 @@ export function fetchLogin(email: string, password: string) {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password })
+  })
+}
+
+export function fetchLoginByEmailCode(email: string, code: string) {
+  return request<LoginResponse>('/auth/login-by-email-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code })
+  })
+}
+
+export function sendAuthEmailCode(email: string, purpose: EmailCodePurpose) {
+  return request<SendEmailCodeResponse>('/auth/email-codes', {
+    method: 'POST',
+    body: JSON.stringify({ email, purpose })
+  })
+}
+
+export function registerCustomer(payload: RegisterRequest) {
+  return request<UserVO>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function resetCustomerPassword(email: string, code: string, password: string) {
+  return request<boolean>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, password })
   })
 }
 

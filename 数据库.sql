@@ -2,7 +2,7 @@
 -- MySQL 8.0
 -- 设计目标：1.0 可直接使用，并为 2.0/3.0 的文件上传、阶段确认、已读未读、操作审计预留基础表结构。
 -- 默认演示账号：
--- 客户：customer@example.com / 123456
+-- 客户：customer@163.com / 123456
 -- 设计师：designer@example.com / 123456
 
 CREATE DATABASE IF NOT EXISTS `advertisement_design`
@@ -299,7 +299,7 @@ CREATE TABLE `operation_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志表';
 
 INSERT INTO `user` (`id`, `email`, `phone`, `password_hash`, `nickname`, `role`, `avatar`, `status`, `last_login_at`, `created_at`, `updated_at`) VALUES
-(1, 'customer@example.com', NULL, '$2a$10$jFVkPRlTCuJNU3/bc97SZO4GjjiK9QRRIk8pH82/AUt5Efxlxttte', '演示客户', 'CUSTOMER', 'https://example.com/avatar/customer.png', 'ENABLED', NULL, '2026-07-20 10:00:00', '2026-07-20 10:00:00'),
+(1, 'customer@163.com', NULL, '$2a$10$jFVkPRlTCuJNU3/bc97SZO4GjjiK9QRRIk8pH82/AUt5Efxlxttte', '演示客户', 'CUSTOMER', 'https://example.com/avatar/customer.png', 'ENABLED', NULL, '2026-07-20 10:00:00', '2026-07-20 10:00:00'),
 (2, 'designer@example.com', NULL, '$2a$10$ycsJGmPT5IGSN1bN5vTwA.J.8v83fnmr2RtMDGk3OLbPvjrc5en6S', '演示设计师', 'DESIGNER', 'https://example.com/avatar/designer.png', 'ENABLED', NULL, '2026-07-20 10:00:00', '2026-07-20 10:00:00');
 
 INSERT INTO `file_asset` (`id`, `uploader_id`, `original_name`, `storage_name`, `storage_provider`, `bucket_name`, `object_key`, `url`, `mime_type`, `file_size`, `file_hash`, `status`, `created_at`, `updated_at`) VALUES

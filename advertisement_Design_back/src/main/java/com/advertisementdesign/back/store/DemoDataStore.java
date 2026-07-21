@@ -51,7 +51,7 @@ public class DemoDataStore {
     private void seed() {
         UserEntity customer = UserEntity.builder()
                 .id(1L)
-                .email("customer@example.com")
+                .email("customer@163.com")
                 .phone(null)
                 .passwordHash("$2a$10$jFVkPRlTCuJNU3/bc97SZO4GjjiK9QRRIk8pH82/AUt5Efxlxttte")
                 .nickname("演示客户")
