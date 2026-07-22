@@ -18,11 +18,12 @@ import { ElMessage } from 'element-plus'
 import { ArrowRight, ChatDotRound, Search } from '@element-plus/icons-vue'
 import { listProjects } from '@/api'
 import type { ProjectVO } from '@/models'
+import { projectStatusLabel } from '@/utils/displayLabels'
 
 const router = useRouter(); const loading = ref(false); const projects = ref<ProjectVO[]>([]); const filters = reactive({ keyword: '', status: '' })
 const pendingCount = computed(() => projects.value.filter((item) => item.currentStage && item.status === 'IN_PROGRESS').length)
 const inProgressCount = computed(() => projects.value.filter((item) => item.status === 'IN_PROGRESS').length)
-const statusName = (value: string) => ({ IN_PROGRESS: '进行中', COMPLETED: '已完成', PAUSED: '已暂停', CANCELLED: '已取消' }[value] || value)
+const statusName = projectStatusLabel
 const formatDate = (value?: string) => value ? value.replace('T', ' ').slice(0, 10) : ''
 async function load() { loading.value = true; try { projects.value = (await listProjects({ keyword: filters.keyword || undefined, status: filters.status || undefined, page: 1, size: 50 })).records } catch (error) { ElMessage.error(error instanceof Error ? error.message : '项目加载失败') } finally { loading.value = false } }
 onMounted(load)

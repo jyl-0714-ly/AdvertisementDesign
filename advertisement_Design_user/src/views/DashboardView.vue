@@ -18,7 +18,7 @@
           >
             <div class="card-meta">
               <strong>{{ project.name }}</strong>
-              <span class="badge" :class="statusClass(project.status)">{{ project.status }}</span>
+              <span class="badge" :class="statusClass(project.status)">{{ projectStatusLabel(project.status) }}</span>
             </div>
             <div class="muted" style="margin-top: 8px">{{ project.currentStageName }}</div>
             <div class="muted">进度 {{ project.progress }}%</div>
@@ -63,6 +63,7 @@ import PageSection from '@/components/PageSection.vue'
 import StatCard from '@/components/StatCard.vue'
 import { listConversations, listPortfolioCases, listProjects } from '@/api'
 import type { ConversationVO, PortfolioCaseVO, ProjectVO } from '@/models'
+import { projectStatusLabel } from '@/utils/displayLabels'
 
 const router = useRouter()
 const projects = ref<ProjectVO[]>([])

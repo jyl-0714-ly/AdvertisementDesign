@@ -15,7 +15,7 @@
         >
           <div class="card-meta">
             <strong>{{ item.title }}</strong>
-            <span class="badge">{{ item.status }}</span>
+            <span class="badge">{{ portfolioStatusLabel(item.status) }}</span>
           </div>
           <div class="muted" style="margin-top: 8px">{{ item.industry }} / {{ item.style }}</div>
           <div class="muted">{{ item.serviceType }}</div>
@@ -28,7 +28,7 @@
         <div class="card-item">
           <div class="card-meta">
             <strong>{{ detail.title }}</strong>
-            <span class="badge primary">{{ detail.status }}</span>
+            <span class="badge primary">{{ portfolioStatusLabel(detail.status) }}</span>
           </div>
           <div class="muted" style="margin-top: 8px">{{ detail.description }}</div>
         </div>
@@ -69,9 +69,9 @@
           </el-form-item>
           <el-form-item label="状态">
             <el-select v-model="form.status">
-              <el-option label="PUBLISHED" value="PUBLISHED" />
-              <el-option label="DRAFT" value="DRAFT" />
-              <el-option label="OFFLINE" value="OFFLINE" />
+              <el-option label="已发布" value="PUBLISHED" />
+              <el-option label="草稿" value="DRAFT" />
+              <el-option label="已下线" value="OFFLINE" />
             </el-select>
           </el-form-item>
         </div>
@@ -92,6 +92,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import PageSection from '@/components/PageSection.vue'
 import { createPortfolioCase, deletePortfolioCase, listPortfolioCases, updatePortfolioCase } from '@/api'
 import type { PortfolioCaseVO } from '@/models'
+import { portfolioStatusLabel } from '@/utils/displayLabels'
 
 const cases = ref<PortfolioCaseVO[]>([])
 const detail = ref<PortfolioCaseVO | null>(null)

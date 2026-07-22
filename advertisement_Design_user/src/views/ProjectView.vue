@@ -26,7 +26,7 @@
         <aside class="detail-side">
           <section class="members-panel"><h2>项目成员</h2><div><span>客户</span><strong>{{ project.customerName || '—' }}</strong></div><div><span>设计师</span><strong>{{ project.designerName || '—' }}</strong></div></section>
           <section class="archive-panel"><div class="detail-section-head"><div><h2>文件归档</h2><p>按阶段归档的项目产物。</p></div><span>{{ files.length }}</span></div>
-            <div v-for="file in filteredFiles" :key="file.id" class="archive-item"><el-icon><Document /></el-icon><div><strong>{{ file.file?.originalName || file.description || '项目文件' }}</strong><small>{{ stageName(file.stageCode) }} · {{ file.fileRole }}</small></div><button type="button" title="下载文件" @click="download(file)"><el-icon><Download /></el-icon></button></div>
+            <div v-for="file in filteredFiles" :key="file.id" class="archive-item"><el-icon><Document /></el-icon><div><strong>{{ file.file?.originalName || file.description || '项目文件' }}</strong><small>{{ stageName(file.stageCode) }} · {{ fileRoleLabel(file.fileRole) }}</small></div><button type="button" title="下载文件" @click="download(file)"><el-icon><Download /></el-icon></button></div>
             <div v-if="!filteredFiles.length" class="archive-empty">该阶段暂未归档文件。</div>
           </section>
         </aside>
@@ -42,12 +42,13 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, ChatDotRound, Document, Download } from '@element-plus/icons-vue'
 import { downloadFile, getProject, listProjectFiles, listProjectStages } from '@/api'
 import type { ProjectFileVO, ProjectStageVO, ProjectVO } from '@/models'
+import { fileRoleLabel, stageStatusLabel } from '@/utils/displayLabels'
 
 const route = useRoute(); const router = useRouter()
 const loading = ref(false); const project = ref<ProjectVO | null>(null); const stages = ref<ProjectStageVO[]>([]); const files = ref<ProjectFileVO[]>([]); const activeStage = ref('')
 const projectId = computed(() => Number(route.params.id))
 const filteredFiles = computed(() => activeStage.value ? files.value.filter((item) => item.stageCode === activeStage.value) : files.value)
-const stageStatus = (status: string) => ({ REACHED: '已达成', PENDING_CONFIRM: '待确认', REJECTED: '已驳回', TODO: '待发起' }[status] || status)
+const stageStatus = stageStatusLabel
 const stageCopy = (stage: ProjectStageVO) => stage.status === 'REACHED' ? '双方已确认该阶段，项目记录已归档。' : stage.status === 'PENDING_CONFIRM' ? '已发起确认，正在等待对方处理。' : stage.status === 'REJECTED' ? '该阶段被驳回，请在沟通工作台继续处理。' : '尚未发起，完成上一阶段后可推进。'
 const stageName = (code?: string | null) => stages.value.find((item) => item.stageCode === code)?.stageName || '未分类'
 

@@ -5,7 +5,7 @@
         <div class="card-item">
           <div class="card-meta">
             <strong>{{ project.name }}</strong>
-            <span class="badge primary">{{ project.status }}</span>
+            <span class="badge primary">{{ projectStatusLabel(project.status) }}</span>
           </div>
           <div class="muted" style="margin-top: 8px">{{ project.description || '暂无说明' }}</div>
           <div class="muted" style="margin-top: 8px">当前阶段：{{ project.currentStageName }}</div>
@@ -27,9 +27,9 @@
           <div class="timeline-row">
             <div>
               <strong>{{ stage.stageName }}</strong>
-              <div class="muted">{{ stage.stageCode }}</div>
+              <div class="muted">{{ stageCodeLabel(stage.stageCode) }}</div>
             </div>
-            <span class="badge" :class="stageClass(stage.status)">{{ stage.status }}</span>
+            <span class="badge" :class="stageClass(stage.status)">{{ stageStatusLabel(stage.status) }}</span>
           </div>
           <div class="muted">更新时间：{{ stage.updatedAt || stage.reachedAt || '—' }}</div>
         </div>
@@ -40,7 +40,9 @@
       <PageSection title="阶段动作" subtitle="发起确认和处理结果">
         <div class="surface pad" style="margin-bottom: 16px">
           <div class="form-grid">
-            <el-input v-model="actionForm.stageCode" placeholder="阶段编码" />
+            <el-select v-model="actionForm.stageCode" placeholder="请选择项目阶段">
+              <el-option v-for="stage in stages" :key="stage.stageCode" :label="stage.stageName" :value="stage.stageCode" />
+            </el-select>
             <el-input v-model="actionForm.requestNote" placeholder="请求说明" />
           </div>
           <div class="table-actions" style="margin-top: 12px">
@@ -51,8 +53,8 @@
         <div class="card-list">
           <div v-for="action in actions" :key="action.id" class="card-item">
             <div class="card-meta">
-              <strong>{{ action.stageCode }}</strong>
-              <span class="badge" :class="actionClass(action.status)">{{ action.status }}</span>
+              <strong>{{ stageCodeLabel(action.stageCode) }}</strong>
+              <span class="badge" :class="actionClass(action.status)">{{ stageActionStatusLabel(action.status) }}</span>
             </div>
             <div class="muted" style="margin-top: 8px">{{ action.requestNote || '暂无说明' }}</div>
             <div class="table-actions" style="margin-top: 8px">
@@ -77,15 +79,17 @@
           <div class="form-grid">
             <el-input v-model.number="archiveForm.fileId" placeholder="文件 ID" />
             <el-input v-model.number="archiveForm.projectStageId" placeholder="阶段 ID" />
-            <el-input v-model="archiveForm.stageCode" placeholder="阶段编码" />
+            <el-select v-model="archiveForm.stageCode" placeholder="请选择归档阶段">
+              <el-option v-for="stage in stages" :key="stage.stageCode" :label="stage.stageName" :value="stage.stageCode" />
+            </el-select>
             <el-select v-model="archiveForm.fileRole" placeholder="文件角色">
-              <el-option label="DELIVERABLE" value="DELIVERABLE" />
-              <el-option label="REPORT" value="REPORT" />
-              <el-option label="DRAFT" value="DRAFT" />
-              <el-option label="MATERIAL" value="MATERIAL" />
-              <el-option label="FINAL" value="FINAL" />
-              <el-option label="CONTRACT" value="CONTRACT" />
-              <el-option label="OTHER" value="OTHER" />
+              <el-option label="交付文件" value="DELIVERABLE" />
+              <el-option label="调研报告" value="REPORT" />
+              <el-option label="草稿" value="DRAFT" />
+              <el-option label="需求资料" value="MATERIAL" />
+              <el-option label="定稿" value="FINAL" />
+              <el-option label="合同" value="CONTRACT" />
+              <el-option label="其他文件" value="OTHER" />
             </el-select>
             <el-input v-model="archiveForm.description" placeholder="文件说明" />
           </div>
@@ -97,9 +101,9 @@
           <div v-for="file in files" :key="file.id" class="card-item">
             <div class="card-meta">
               <strong>{{ file.file?.originalName || file.description || '文件' }}</strong>
-              <span class="badge">{{ file.fileRole }}</span>
+              <span class="badge">{{ fileRoleLabel(file.fileRole) }}</span>
             </div>
-            <div class="muted" style="margin-top: 8px">{{ file.stageCode || '—' }}</div>
+            <div class="muted" style="margin-top: 8px">{{ stageCodeLabel(file.stageCode) }}</div>
             <div class="table-actions" style="margin-top: 8px">
               <el-button size="small" @click="download(file.file?.id || file.fileId, file.file?.originalName || 'file.bin')">下载</el-button>
               <el-button size="small" type="danger" plain @click="removeFile(file.id)">删除</el-button>
@@ -117,7 +121,7 @@
               <strong>{{ message.senderName }}</strong>
               <span class="muted">{{ message.createdAt || '—' }}</span>
             </div>
-            <div>{{ message.content || message.messageType }}</div>
+            <div>{{ message.content || messageTypeLabel(message.messageType) }}</div>
           </div>
         </div>
         <div class="surface pad" style="margin-top: 16px">
@@ -132,8 +136,8 @@
         <div class="card-list">
           <div v-for="log in logs" :key="log.id" class="card-item">
             <div class="card-meta">
-              <strong>{{ log.action }}</strong>
-              <span class="badge">{{ log.bizType }}</span>
+              <strong>{{ operationActionLabel(log.action) }}</strong>
+              <span class="badge">{{ businessTypeLabel(log.bizType) }}</span>
             </div>
             <div class="muted" style="margin-top: 8px">{{ log.description }}</div>
             <div class="muted">{{ log.createdAt || '—' }}</div>
@@ -167,6 +171,16 @@ import {
   uploadFile
 } from '@/api'
 import type { ConversationVO, FileRole, MessageVO, OperationLogVO, ProjectFileVO, ProjectStageVO, ProjectVO, StageActionVO } from '@/models'
+import {
+  businessTypeLabel,
+  fileRoleLabel,
+  messageTypeLabel,
+  operationActionLabel,
+  projectStatusLabel,
+  stageActionStatusLabel,
+  stageCodeLabel,
+  stageStatusLabel
+} from '@/utils/displayLabels'
 
 const route = useRoute()
 const project = ref<ProjectVO | null>(null)

@@ -13,7 +13,7 @@
           <button v-for="project in projects" :key="project.id" class="card-item" @click="openProject(project.id)">
             <div class="card-meta">
               <strong>{{ project.name }}</strong>
-              <span class="badge" :class="statusClass(project.status)">{{ project.status }}</span>
+              <span class="badge" :class="statusClass(project.status)">{{ projectStatusLabel(project.status) }}</span>
             </div>
             <div class="muted" style="margin-top: 8px">{{ project.customerName || '—' }} / {{ project.designerName || '—' }}</div>
             <div class="muted">{{ project.currentStageName }} · {{ project.progress }}%</div>
@@ -71,6 +71,7 @@ import PageSection from '@/components/PageSection.vue'
 import StatCard from '@/components/StatCard.vue'
 import { createProject, listConversations, listPortfolioCases, listProjects } from '@/api'
 import type { ConversationVO, PortfolioCaseVO, ProjectVO } from '@/models'
+import { projectStatusLabel } from '@/utils/displayLabels'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()

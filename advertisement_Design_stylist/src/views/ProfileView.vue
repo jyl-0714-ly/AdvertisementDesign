@@ -8,7 +8,7 @@
           </div>
           <div class="stack">
             <div class="muted">邮箱：{{ auth.user?.email || '—' }}</div>
-            <div class="muted">角色：{{ auth.user?.role || '—' }}</div>
+            <div class="muted">角色：{{ roleLabel(auth.user?.role) }}</div>
             <div class="muted">昵称：{{ auth.user?.nickname || '—' }}</div>
           </div>
         </div>
@@ -39,6 +39,7 @@ import { reactive, ref, watchEffect } from 'vue'
 import { ElMessage } from 'element-plus'
 import PageSection from '@/components/PageSection.vue'
 import { useAuthStore } from '@/stores/auth'
+import { roleLabel } from '@/utils/displayLabels'
 
 const auth = useAuthStore()
 const saving = ref(false)

@@ -29,6 +29,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowRight, ChatDotRound } from '@element-plus/icons-vue'
 import { listProjects } from '@/api'
 import type { ProjectVO } from '@/models'
+import { projectStatusLabel } from '@/utils/displayLabels'
 
 const router = useRouter()
 const loading = ref(false)
@@ -39,7 +40,7 @@ const groups = computed(() => {
   return [...values.entries()].map(([name, items]) => ({ name, items }))
 })
 
-const statusName = (status: string) => ({ IN_PROGRESS: '进行中', COMPLETED: '已完成', PAUSED: '已暂停', CANCELLED: '已取消' }[status] || status)
+const statusName = projectStatusLabel
 const formatDate = (value?: string) => value ? value.replace('T', ' ').slice(0, 10) : ''
 
 onMounted(async () => {
