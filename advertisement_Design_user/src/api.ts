@@ -142,10 +142,11 @@ export function updateMe(payload: UpdateUserRequest) {
 }
 
 export function listPortfolioCases(params: {
+  category?: string
   industry?: string
   style?: string
-  serviceType?: string
   keyword?: string
+  featured?: boolean
   page?: number
   size?: number
 }) {

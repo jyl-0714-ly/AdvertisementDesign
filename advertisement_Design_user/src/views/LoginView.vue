@@ -351,7 +351,7 @@ async function submit() {
     if (loginMode.value === 'password') await auth.login(form.account.trim(), form.password)
     else await auth.loginByEmailCode(form.account.trim(), form.emailCode.trim())
     ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/consultant'
     await router.replace(redirect)
   } catch (error) {
     setLoginError(messageOf(error))

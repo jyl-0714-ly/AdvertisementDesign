@@ -34,6 +34,7 @@ public class ApiAssembler {
         return new PortfolioModels.PortfolioCaseVO(
                 entity.getId(),
                 entity.getTitle(),
+                entity.getCategory(),
                 entity.getIndustry(),
                 entity.getStyle(),
                 entity.getServiceType(),
@@ -41,6 +42,7 @@ public class ApiAssembler {
                 entity.getImageUrls(),
                 entity.getDescription(),
                 entity.getSortOrder(),
+                Boolean.TRUE.equals(entity.getFeatured()),
                 entity.getStatus(),
                 entity.getCreatedAt().toString(),
                 entity.getUpdatedAt().toString()

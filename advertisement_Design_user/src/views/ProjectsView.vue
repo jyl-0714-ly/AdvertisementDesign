@@ -5,10 +5,10 @@
       <button type="button" class="go-workbench" @click="router.push('/workbench')"><el-icon><ChatDotRound /></el-icon>进入需求沟通</button>
     </header>
 
-    <section v-for="group in groups" :key="group.name" class="project-group">
-      <div class="project-group-title"><h2>{{ group.name }}</h2><span>{{ group.items.length }} 个项目</span></div>
+    <section v-if="projects.length" class="project-group">
+      <div class="project-group-title"><h2>全部项目</h2><span>{{ projects.length }} 个项目</span></div>
       <div class="project-grid">
-        <article v-for="project in group.items" :key="project.id" class="project-summary" @click="router.push(`/projects/${project.id}`)">
+        <article v-for="project in projects" :key="project.id" class="project-summary" @click="router.push(`/projects/${project.id}`)">
           <header><span class="project-status" :class="project.status.toLowerCase()">{{ statusName(project.status) }}</span><time>{{ formatDate(project.updatedAt) }}</time></header>
           <h3>{{ project.name }}</h3>
           <p>{{ project.description || '暂无项目说明' }}</p>
@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, ChatDotRound } from '@element-plus/icons-vue'
@@ -34,11 +34,6 @@ import { projectStatusLabel } from '@/utils/displayLabels'
 const router = useRouter()
 const loading = ref(false)
 const projects = ref<ProjectVO[]>([])
-const groups = computed(() => {
-  const values = new Map<string, ProjectVO[]>()
-  projects.value.forEach((project) => values.set(project.currentStageName || '待启动', [...(values.get(project.currentStageName || '待启动') || []), project]))
-  return [...values.entries()].map(([name, items]) => ({ name, items }))
-})
 
 const statusName = projectStatusLabel
 const formatDate = (value?: string) => value ? value.replace('T', ' ').slice(0, 10) : ''

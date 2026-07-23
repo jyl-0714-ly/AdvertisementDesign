@@ -89,7 +89,7 @@ export function fetchMe() { return request<UserVO>('/auth/me') }
 export function fetchLogout() { return request<boolean>('/auth/logout', { method: 'POST' }) }
 export function updateMe(payload: UpdateUserRequest) { return request<UserVO>('/users/me', { method: 'PUT', body: JSON.stringify(payload) }) }
 
-export function listPortfolioCases(params: { industry?: string; style?: string; serviceType?: string; keyword?: string; page?: number; size?: number }) {
+export function listPortfolioCases(params: { category?: string; industry?: string; style?: string; keyword?: string; featured?: boolean; page?: number; size?: number }) {
   return request<PageResult<PortfolioCaseVO>>(`/portfolio-cases${buildQuery(params)}`)
 }
 export function getPortfolioCase(id: number) { return request<PortfolioCaseVO>(`/portfolio-cases/${id}`) }

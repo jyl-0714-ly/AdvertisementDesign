@@ -121,12 +121,15 @@ paths:
     get:
       tags: [PortfolioCase]
       summary: 作品案例列表
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
+        - $ref: "#/components/parameters/PortfolioCategory"
         - $ref: "#/components/parameters/Industry"
         - $ref: "#/components/parameters/Style"
-        - $ref: "#/components/parameters/ServiceType"
         - $ref: "#/components/parameters/Keyword"
+        - $ref: "#/components/parameters/Featured"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
       responses:
@@ -166,7 +169,9 @@ paths:
     get:
       tags: [PortfolioCase]
       summary: 作品案例详情
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Id"
       responses:
@@ -783,11 +788,17 @@ components:
       in: query
       schema:
         type: string
-    ServiceType:
-      name: serviceType
+    PortfolioCategory:
+      name: category
       in: query
       schema:
         type: string
+        enum: [BRAND, DIGITAL, OFFLINE]
+    Featured:
+      name: featured
+      in: query
+      schema:
+        type: boolean
   schemas:
     Result:
       type: object
@@ -867,10 +878,13 @@ components:
           type: string
     PortfolioCaseRequest:
       type: object
-      required: [title, industry, style, serviceType, coverUrl, description]
+      required: [title, category, industry, style, serviceType, coverUrl, description]
       properties:
         title:
           type: string
+        category:
+          type: string
+          enum: [BRAND, DIGITAL, OFFLINE]
         industry:
           type: string
         style:
@@ -887,6 +901,8 @@ components:
           type: string
         sortOrder:
           type: integer
+        featured:
+          type: boolean
         status:
           type: string
           enum: [DRAFT, PUBLISHED, OFFLINE]

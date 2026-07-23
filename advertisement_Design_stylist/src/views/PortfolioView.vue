@@ -18,7 +18,7 @@
             <span class="badge">{{ portfolioStatusLabel(item.status) }}</span>
           </div>
           <div class="muted" style="margin-top: 8px">{{ item.industry }} / {{ item.style }}</div>
-          <div class="muted">{{ item.serviceType }}</div>
+          <div class="muted">{{ categoryLabel(item.category) }} / {{ item.serviceType }}<span v-if="item.featured"> / 首页精选</span></div>
         </button>
       </div>
     </PageSection>
@@ -48,6 +48,13 @@
         <el-form-item label="行业">
           <el-input v-model="form.industry" />
         </el-form-item>
+        <el-form-item label="案例分类">
+          <el-select v-model="form.category">
+            <el-option label="品牌系统" value="BRAND" />
+            <el-option label="线上传播" value="DIGITAL" />
+            <el-option label="线下物料" value="OFFLINE" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="风格">
           <el-input v-model="form.style" />
         </el-form-item>
@@ -75,6 +82,9 @@
             </el-select>
           </el-form-item>
         </div>
+        <el-form-item label="首页展示">
+          <el-switch v-model="form.featured" active-text="设为精选案例" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <div class="table-actions">
@@ -101,6 +111,7 @@ const saving = ref(false)
 const editId = ref<number | null>(null)
 const form = reactive({
   title: '',
+  category: 'DIGITAL' as 'BRAND' | 'DIGITAL' | 'OFFLINE',
   industry: '',
   style: '',
   serviceType: '',
@@ -108,6 +119,7 @@ const form = reactive({
   imageUrls: '',
   description: '',
   sortOrder: 0,
+  featured: false,
   status: 'PUBLISHED'
 })
 
@@ -127,6 +139,7 @@ function openCreate() {
   editId.value = null
   Object.assign(form, {
     title: '',
+    category: 'DIGITAL',
     industry: '',
     style: '',
     serviceType: '',
@@ -134,6 +147,7 @@ function openCreate() {
     imageUrls: '',
     description: '',
     sortOrder: 0,
+    featured: false,
     status: 'PUBLISHED'
   })
   dialogVisible.value = true
@@ -143,6 +157,7 @@ function openEdit(item: PortfolioCaseVO) {
   editId.value = item.id
   Object.assign(form, {
     title: item.title,
+    category: item.category,
     industry: item.industry,
     style: item.style,
     serviceType: item.serviceType,
@@ -150,6 +165,7 @@ function openEdit(item: PortfolioCaseVO) {
     imageUrls: (item.imageUrls || []).join(', '),
     description: item.description,
     sortOrder: item.sortOrder || 0,
+    featured: Boolean(item.featured),
     status: item.status
   })
   dialogVisible.value = true
@@ -160,6 +176,7 @@ async function save() {
     saving.value = true
     const payload = {
       title: form.title,
+      category: form.category,
       industry: form.industry,
       style: form.style,
       serviceType: form.serviceType,
@@ -167,6 +184,7 @@ async function save() {
       imageUrls: form.imageUrls.split(',').map((item) => item.trim()).filter(Boolean),
       description: form.description,
       sortOrder: Number(form.sortOrder) || 0,
+      featured: form.featured,
       status: form.status as 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
     }
     if (editId.value) {
@@ -190,6 +208,10 @@ async function remove(id: number) {
     await deletePortfolioCase(id)
     await load()
   } catch {}
+}
+
+function categoryLabel(category: PortfolioCaseVO['category']) {
+  return { BRAND: '品牌系统', DIGITAL: '线上传播', OFFLINE: '线下物料' }[category]
 }
 
 onMounted(load)

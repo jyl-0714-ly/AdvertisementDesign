@@ -90,12 +90,12 @@ a:focus-visible {
   color: #171717;
 }
 
-.designer-user > button:first-child,
+.designer-user-chip,
 .designer-logout {
   color: #666666;
 }
 
-.designer-user > button:first-child span {
+.designer-user-chip span {
   background: #eeeeec;
   color: #171717;
 }

@@ -2,10 +2,14 @@ package com.advertisementdesign.back.service;
 
 import com.advertisementdesign.back.api.ApiAssembler;
 import com.advertisementdesign.back.api.portfolio.PortfolioModels;
+import com.advertisementdesign.back.common.web.AuthContext;
+import com.advertisementdesign.back.common.web.CurrentUser;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.domain.entity.PortfolioCaseEntity;
+import com.advertisementdesign.back.domain.enums.PortfolioCategory;
+import com.advertisementdesign.back.domain.enums.PortfolioStatus;
 import com.advertisementdesign.back.domain.enums.UserRole;
 import com.advertisementdesign.back.store.DemoDataStore;
 import lombok.RequiredArgsConstructor;
@@ -21,18 +25,23 @@ public class PortfolioCaseService {
     private final ApiAssembler assembler;
     private final AuthService authService;
 
-    public PageResult<PortfolioModels.PortfolioCaseVO> list(String industry, String style, String serviceType, String keyword, long page, long size) {
-        List<PortfolioModels.PortfolioCaseVO> records = store.listPortfolioCases(industry, style, serviceType, keyword).stream()
+    public PageResult<PortfolioModels.PortfolioCaseVO> list(PortfolioCategory category, String industry, String style, String keyword, Boolean featured, long page, long size) {
+        CurrentUser currentUser = AuthContext.currentUserOrNull();
+        List<PortfolioCaseEntity> visibleCases = store.listPortfolioCases(category, industry, style, keyword, featured).stream()
+                .filter(item -> isVisibleTo(item, currentUser))
+                .toList();
+        List<PortfolioModels.PortfolioCaseVO> records = visibleCases.stream()
                 .map(assembler::toPortfolioCaseVO)
                 .skip(Math.max(page - 1, 0) * size)
                 .limit(size)
                 .toList();
-        long total = store.listPortfolioCases(industry, style, serviceType, keyword).size();
-        return PageResult.of(records, total, page, size);
+        return PageResult.of(records, visibleCases.size(), page, size);
     }
 
     public PortfolioModels.PortfolioCaseVO detail(Long id) {
+        CurrentUser currentUser = AuthContext.currentUserOrNull();
         return store.findPortfolioCaseById(id)
+                .filter(item -> isVisibleTo(item, currentUser))
                 .map(assembler::toPortfolioCaseVO)
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
     }
@@ -41,6 +50,7 @@ public class PortfolioCaseService {
         ensureDesigner();
         PortfolioCaseEntity entity = PortfolioCaseEntity.builder()
                 .title(request.title())
+                .category(request.category())
                 .industry(request.industry())
                 .style(request.style())
                 .serviceType(request.serviceType())
@@ -48,6 +58,7 @@ public class PortfolioCaseService {
                 .imageUrls(request.imageUrls())
                 .description(request.description())
                 .sortOrder(request.sortOrder() == null ? 0 : request.sortOrder())
+                .featured(Boolean.TRUE.equals(request.featured()))
                 .status(request.status() == null ? com.advertisementdesign.back.domain.enums.PortfolioStatus.PUBLISHED : request.status())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -61,6 +72,9 @@ public class PortfolioCaseService {
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
         if (request.title() != null) {
             entity.setTitle(request.title());
+        }
+        if (request.category() != null) {
+            entity.setCategory(request.category());
         }
         if (request.industry() != null) {
             entity.setIndustry(request.industry());
@@ -83,6 +97,9 @@ public class PortfolioCaseService {
         if (request.sortOrder() != null) {
             entity.setSortOrder(request.sortOrder());
         }
+        if (request.featured() != null) {
+            entity.setFeatured(request.featured());
+        }
         if (request.status() != null) {
             entity.setStatus(request.status());
         }
@@ -104,5 +121,15 @@ public class PortfolioCaseService {
         if (authService.currentUserEntity().getRole() != UserRole.DESIGNER) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
+    }
+
+    private boolean isVisibleTo(PortfolioCaseEntity item, CurrentUser currentUser) {
+        if (currentUser != null && currentUser.getRole() == UserRole.DESIGNER) {
+            return true;
+        }
+        if (item.getStatus() != PortfolioStatus.PUBLISHED) {
+            return false;
+        }
+        return currentUser != null || Boolean.TRUE.equals(item.getFeatured());
     }
 }

@@ -10,9 +10,17 @@ public final class AuthContext {
     }
 
     public static CurrentUser currentUser() {
+        CurrentUser currentUser = currentUserOrNull();
+        if (currentUser == null) {
+            throw new ApiException(ApiErrorCode.UNAUTHORIZED);
+        }
+        return currentUser;
+    }
+
+    public static CurrentUser currentUserOrNull() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof CurrentUser currentUser)) {
-            throw new ApiException(ApiErrorCode.UNAUTHORIZED);
+            return null;
         }
         return currentUser;
     }

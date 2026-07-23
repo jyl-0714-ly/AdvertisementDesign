@@ -1,7 +1,7 @@
 <template>
   <div class="case-page">
     <header class="case-header">
-      <button type="button" class="case-back" @click="router.push('/')"><el-icon><ArrowLeft /></el-icon> 返回作品集</button>
+      <button type="button" class="case-back" @click="backToPortfolio"><el-icon><ArrowLeft /></el-icon> 返回作品集</button>
       <button type="button" class="consult-button" @click="router.push('/login')">免费咨询</button>
     </header>
     <main v-loading="loading" class="case-main">
@@ -44,6 +44,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getPortfolioCase } from '@/api'
 import type { PortfolioCaseVO } from '@/models'
+import { getPortfolioReturnLocation } from '@/utils/portfolioReturn'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +58,20 @@ function coverStyle(item: PortfolioCaseVO) {
   const colors = [['#102a43', '#1d72a3'], ['#1d3b2a', '#86a840'], ['#633d29', '#e4a766'], ['#e84e34', '#ffc940'], ['#25213f', '#947ed9'], ['#1d5260', '#5ec2be']]
   const palette = colors[item.id % colors.length]
   return { '--case-a': palette[0], '--case-b': palette[1] }
+}
+
+function backToPortfolio() {
+  const returnLocation = getPortfolioReturnLocation()
+  if (!returnLocation) {
+    router.push({ path: '/', hash: '#portfolio' })
+    return
+  }
+
+  if (window.history.state?.back === returnLocation.path) {
+    router.back()
+    return
+  }
+  router.push(returnLocation.path)
 }
 
 onMounted(async () => {

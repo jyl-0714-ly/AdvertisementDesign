@@ -78,6 +78,7 @@ CREATE TABLE `file_asset` (
 CREATE TABLE `portfolio_case` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `title` VARCHAR(128) NOT NULL COMMENT '案例标题',
+  `category` VARCHAR(32) NOT NULL COMMENT '案例分类：BRAND / DIGITAL / OFFLINE',
   `industry` VARCHAR(64) NOT NULL COMMENT '行业',
   `style` VARCHAR(64) NOT NULL COMMENT '风格',
   `service_type` VARCHAR(64) NOT NULL COMMENT '服务类型',
@@ -85,14 +86,18 @@ CREATE TABLE `portfolio_case` (
   `image_urls` JSON DEFAULT NULL COMMENT '详情图片地址列表',
   `description` TEXT NOT NULL COMMENT '设计说明',
   `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序值，越小越靠前',
+  `featured` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否首页精选：0 否，1 是',
   `status` VARCHAR(32) NOT NULL DEFAULT 'PUBLISHED' COMMENT '状态：DRAFT / PUBLISHED / OFFLINE',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
+  KEY `idx_portfolio_category` (`category`),
   KEY `idx_portfolio_industry` (`industry`),
   KEY `idx_portfolio_style` (`style`),
   KEY `idx_portfolio_service_type` (`service_type`),
-  KEY `idx_portfolio_status_sort` (`status`, `sort_order`),
+  KEY `idx_portfolio_status_featured_sort` (`status`, `featured`, `sort_order`),
+  CONSTRAINT `chk_portfolio_category` CHECK (`category` IN ('BRAND', 'DIGITAL', 'OFFLINE')),
+  CONSTRAINT `chk_portfolio_featured` CHECK (`featured` IN (0, 1)),
   CONSTRAINT `chk_portfolio_status` CHECK (`status` IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
   FULLTEXT KEY `ft_portfolio_title_description` (`title`, `description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='作品案例表';
@@ -306,13 +311,13 @@ INSERT INTO `file_asset` (`id`, `uploader_id`, `original_name`, `storage_name`, 
 (1, 2, '山野咖啡资料调研报告.pdf', 'project-1-research-report.pdf', 'LOCAL', NULL, 'demo/project-1/project-1-research-report.pdf', 'https://example.com/files/project-1-research-report.pdf', 'application/pdf', 2483200, 'demo-hash-project-1-report', 'ACTIVE', '2026-07-20 11:20:00', '2026-07-20 11:20:00'),
 (2, 2, '启星教育草图方向稿.zip', 'project-2-sketch-draft.zip', 'LOCAL', NULL, 'demo/project-2/project-2-sketch-draft.zip', 'https://example.com/files/project-2-sketch-draft.zip', 'application/zip', 5242880, 'demo-hash-project-2-draft', 'ACTIVE', '2026-07-20 11:30:00', '2026-07-20 11:30:00');
 
-INSERT INTO `portfolio_case` (`id`, `title`, `industry`, `style`, `service_type`, `cover_url`, `image_urls`, `description`, `sort_order`, `status`, `created_at`, `updated_at`) VALUES
-(1, '山野咖啡品牌视觉升级', '餐饮', '极简', '品牌设计', 'https://example.com/portfolio/cafe-cover.jpg', JSON_ARRAY('https://example.com/portfolio/cafe-1.jpg', 'https://example.com/portfolio/cafe-2.jpg'), '为精品咖啡品牌重构 Logo、主视觉和门店物料，突出自然、手作和社区感。', 1, 'PUBLISHED', '2026-07-20 10:05:00', '2026-07-20 10:05:00'),
-(2, '启星少儿教育招生海报', '教育', '年轻化', '海报设计', 'https://example.com/portfolio/education-cover.jpg', JSON_ARRAY('https://example.com/portfolio/education-1.jpg', 'https://example.com/portfolio/education-2.jpg'), '围绕暑期招生场景设计线上线下海报，强化课程亮点和行动入口。', 2, 'PUBLISHED', '2026-07-20 10:06:00', '2026-07-20 10:06:00'),
-(3, '云栖地产高端画册', '地产', '高端', '画册设计', 'https://example.com/portfolio/estate-cover.jpg', JSON_ARRAY('https://example.com/portfolio/estate-1.jpg', 'https://example.com/portfolio/estate-2.jpg'), '为高端住宅项目设计招商画册，强调空间质感、区位价值和生活方式。', 3, 'PUBLISHED', '2026-07-20 10:07:00', '2026-07-20 10:07:00'),
-(4, '潮玩电商活动视觉', '电商', '国潮', '活动物料', 'https://example.com/portfolio/ecommerce-cover.jpg', JSON_ARRAY('https://example.com/portfolio/ecommerce-1.jpg', 'https://example.com/portfolio/ecommerce-2.jpg'), '为电商大促设计主 KV、商品卡片和社媒传播图，提升点击和转化。', 4, 'PUBLISHED', '2026-07-20 10:08:00', '2026-07-20 10:08:00'),
-(5, '智造科技企业 VI 系统', '科技', '商务', 'VI 设计', 'https://example.com/portfolio/tech-cover.jpg', JSON_ARRAY('https://example.com/portfolio/tech-1.jpg', 'https://example.com/portfolio/tech-2.jpg'), '为工业科技企业建立统一 VI 系统，覆盖名片、PPT、展板和官网视觉规范。', 5, 'PUBLISHED', '2026-07-20 10:09:00', '2026-07-20 10:09:00'),
-(6, '新锐美妆包装设计', '美妆', '年轻化', '包装设计', 'https://example.com/portfolio/beauty-cover.jpg', JSON_ARRAY('https://example.com/portfolio/beauty-1.jpg', 'https://example.com/portfolio/beauty-2.jpg'), '围绕年轻女性消费场景打造包装视觉，突出轻盈、清洁和系列化陈列效果。', 6, 'PUBLISHED', '2026-07-20 10:10:00', '2026-07-20 10:10:00');
+INSERT INTO `portfolio_case` (`id`, `title`, `category`, `industry`, `style`, `service_type`, `cover_url`, `image_urls`, `description`, `sort_order`, `featured`, `status`, `created_at`, `updated_at`) VALUES
+(1, '山野咖啡品牌视觉升级', 'BRAND', '餐饮', '极简', '品牌设计', 'https://example.com/portfolio/cafe-cover.jpg', JSON_ARRAY('https://example.com/portfolio/cafe-1.jpg', 'https://example.com/portfolio/cafe-2.jpg'), '为精品咖啡品牌重构 Logo、主视觉和门店物料，突出自然、手作和社区感。', 1, 1, 'PUBLISHED', '2026-07-20 10:05:00', '2026-07-20 10:05:00'),
+(2, '启星少儿教育招生海报', 'DIGITAL', '教育', '年轻化', '海报设计', 'https://example.com/portfolio/education-cover.jpg', JSON_ARRAY('https://example.com/portfolio/education-1.jpg', 'https://example.com/portfolio/education-2.jpg'), '围绕暑期招生场景设计线上线下海报，强化课程亮点和行动入口。', 2, 0, 'PUBLISHED', '2026-07-20 10:06:00', '2026-07-20 10:06:00'),
+(3, '云栖地产高端画册', 'OFFLINE', '地产', '高端', '画册设计', 'https://example.com/portfolio/estate-cover.jpg', JSON_ARRAY('https://example.com/portfolio/estate-1.jpg', 'https://example.com/portfolio/estate-2.jpg'), '为高端住宅项目设计招商画册，强调空间质感、区位价值和生活方式。', 3, 1, 'PUBLISHED', '2026-07-20 10:07:00', '2026-07-20 10:07:00'),
+(4, '潮玩电商活动视觉', 'DIGITAL', '电商', '国潮', '活动物料', 'https://example.com/portfolio/ecommerce-cover.jpg', JSON_ARRAY('https://example.com/portfolio/ecommerce-1.jpg', 'https://example.com/portfolio/ecommerce-2.jpg'), '为电商大促设计主 KV、商品卡片和社媒传播图，提升点击和转化。', 4, 1, 'PUBLISHED', '2026-07-20 10:08:00', '2026-07-20 10:08:00'),
+(5, '智造科技企业 VI 系统', 'BRAND', '科技', '商务', 'VI 设计', 'https://example.com/portfolio/tech-cover.jpg', JSON_ARRAY('https://example.com/portfolio/tech-1.jpg', 'https://example.com/portfolio/tech-2.jpg'), '为工业科技企业建立统一 VI 系统，覆盖名片、PPT、展板和官网视觉规范。', 5, 0, 'PUBLISHED', '2026-07-20 10:09:00', '2026-07-20 10:09:00'),
+(6, '新锐美妆包装设计', 'OFFLINE', '美妆', '年轻化', '包装设计', 'https://example.com/portfolio/beauty-cover.jpg', JSON_ARRAY('https://example.com/portfolio/beauty-1.jpg', 'https://example.com/portfolio/beauty-2.jpg'), '围绕年轻女性消费场景打造包装视觉，突出轻盈、清洁和系列化陈列效果。', 6, 0, 'PUBLISHED', '2026-07-20 10:10:00', '2026-07-20 10:10:00');
 
 INSERT INTO `project` (`id`, `name`, `customer_id`, `designer_id`, `description`, `current_stage`, `status`, `progress`, `created_at`, `updated_at`) VALUES
 (1, '山野咖啡品牌升级项目', 1, 2, '精品咖啡品牌视觉升级，覆盖 Logo、门店物料和线上传播图。', 'RESEARCH_REPORT', 'IN_PROGRESS', 28, '2026-07-20 10:20:00', '2026-07-20 11:20:00'),

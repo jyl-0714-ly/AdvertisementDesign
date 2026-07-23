@@ -3,6 +3,7 @@ package com.advertisementdesign.back.controller;
 import com.advertisementdesign.back.api.portfolio.PortfolioModels;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.api.Result;
+import com.advertisementdesign.back.domain.enums.PortfolioCategory;
 import com.advertisementdesign.back.service.PortfolioCaseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,13 +28,14 @@ public class PortfolioCaseController {
     @Operation(summary = "作品案例列表")
     @GetMapping
     public Result<PageResult<PortfolioModels.PortfolioCaseVO>> list(
+            @RequestParam(required = false) PortfolioCategory category,
             @RequestParam(required = false) String industry,
             @RequestParam(required = false) String style,
-            @RequestParam(required = false) String serviceType,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean featured,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long size) {
-        return Result.success(portfolioCaseService.list(industry, style, serviceType, keyword, page, size));
+        return Result.success(portfolioCaseService.list(category, industry, style, keyword, featured, page, size));
     }
 
     @Operation(summary = "作品案例详情")

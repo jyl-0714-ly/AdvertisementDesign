@@ -1,6 +1,7 @@
 export type UserRole = 'CUSTOMER' | 'DESIGNER'
 export type ProjectStatus = 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED' | 'CANCELLED'
 export type PortfolioStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
+export type PortfolioCategory = 'BRAND' | 'DIGITAL' | 'OFFLINE'
 export type ProjectStageStatus = 'TODO' | 'PENDING_CONFIRM' | 'REACHED' | 'REJECTED'
 export type MessageSenderRole = 'CUSTOMER' | 'DESIGNER' | 'SYSTEM'
 export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'EMOJI' | 'SYSTEM'
@@ -57,6 +58,7 @@ export interface UpdateUserRequest {
 
 export interface PortfolioCaseRequest {
   title: string
+  category: PortfolioCategory
   industry: string
   style: string
   serviceType: string
@@ -64,6 +66,7 @@ export interface PortfolioCaseRequest {
   imageUrls?: string[]
   description: string
   sortOrder?: number | null
+  featured?: boolean | null
   status?: PortfolioStatus | null
 }
 

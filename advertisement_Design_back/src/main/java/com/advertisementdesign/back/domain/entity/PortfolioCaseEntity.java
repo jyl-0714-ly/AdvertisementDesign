@@ -1,6 +1,7 @@
 package com.advertisementdesign.back.domain.entity;
 
 import com.advertisementdesign.back.domain.enums.PortfolioStatus;
+import com.advertisementdesign.back.domain.enums.PortfolioCategory;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -21,6 +22,7 @@ public class PortfolioCaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String title;
+    private PortfolioCategory category;
     private String industry;
     private String style;
     private String serviceType;
@@ -28,6 +30,7 @@ public class PortfolioCaseEntity {
     private List<String> imageUrls;
     private String description;
     private Integer sortOrder;
+    private Boolean featured;
     private PortfolioStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
