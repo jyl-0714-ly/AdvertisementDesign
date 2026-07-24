@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,8 @@ public class DemoDataStore {
     private final AtomicLong projectFileSeq = new AtomicLong(2);
     private final AtomicLong readStateSeq = new AtomicLong(4);
     private final AtomicLong operationLogSeq = new AtomicLong(4);
+    private final AtomicLong consultantIntakeSeq = new AtomicLong(0);
+    private final AtomicLong consultantHumanMessageSeq = new AtomicLong(0);
 
     private final Map<Long, UserEntity> users = new LinkedHashMap<>();
     private final Map<Long, FileAssetEntity> fileAssets = new LinkedHashMap<>();
@@ -43,6 +46,9 @@ public class DemoDataStore {
     private final Map<Long, ProjectFileEntity> projectFiles = new LinkedHashMap<>();
     private final Map<Long, ConversationReadStateEntity> readStates = new LinkedHashMap<>();
     private final Map<Long, OperationLogEntity> operationLogs = new LinkedHashMap<>();
+    private final Map<Long, ConsultantIntakeEntity> consultantIntakes = new LinkedHashMap<>();
+    private final Map<Long, ConsultantHumanMessageEntity> consultantHumanMessages = new LinkedHashMap<>();
+    private final Map<Long, DesignerProfileEntity> designerProfiles = new LinkedHashMap<>();
 
     public DemoDataStore() {
         seed();
@@ -75,6 +81,12 @@ public class DemoDataStore {
                 .build();
         users.put(customer.getId(), customer);
         users.put(designer.getId(), designer);
+        designerProfiles.put(designer.getId(), DesignerProfileEntity.builder()
+                .designerId(designer.getId())
+                .enabled(true)
+                .online(true)
+                .specialties(List.of("品牌设计", "海报设计", "餐饮", "教育"))
+                .build());
 
         FileAssetEntity reportFile = FileAssetEntity.builder()
                 .id(1L)
@@ -436,6 +448,63 @@ public class DemoDataStore {
         }
         operationLogs.put(log.getId(), log);
         return log;
+    }
+
+    public synchronized List<DesignerProfileEntity> listDesignerProfiles() {
+        return new ArrayList<>(designerProfiles.values());
+    }
+
+    public synchronized Optional<DesignerProfileEntity> findDesignerProfile(Long designerId) {
+        return Optional.ofNullable(designerProfiles.get(designerId));
+    }
+
+    public synchronized DesignerProfileEntity saveDesignerProfile(DesignerProfileEntity profile) {
+        designerProfiles.put(profile.getDesignerId(), profile);
+        return profile;
+    }
+
+    public synchronized ConsultantIntakeEntity saveConsultantIntake(ConsultantIntakeEntity intake) {
+        if (intake.getId() == null) {
+            intake.setId(consultantIntakeSeq.incrementAndGet());
+            intake.setCreatedAt(LocalDateTime.now());
+        }
+        intake.setUpdatedAt(LocalDateTime.now());
+        consultantIntakes.put(intake.getId(), intake);
+        return intake;
+    }
+
+    public synchronized Optional<ConsultantIntakeEntity> findConsultantIntakeById(Long id) {
+        return Optional.ofNullable(consultantIntakes.get(id));
+    }
+
+    public synchronized Optional<ConsultantIntakeEntity> findConsultantIntakeByHumanChatId(String humanChatId) {
+        return consultantIntakes.values().stream()
+                .filter(intake -> Objects.equals(humanChatId, intake.getHumanChatId()))
+                .findFirst();
+    }
+
+    public synchronized ConsultantHumanMessageEntity saveConsultantHumanMessage(ConsultantHumanMessageEntity message) {
+        if (message.getId() == null) {
+            message.setId(consultantHumanMessageSeq.incrementAndGet());
+            message.setCreatedAt(LocalDateTime.now());
+        }
+        consultantHumanMessages.put(message.getId(), message);
+        return message;
+    }
+
+    public synchronized List<ConsultantHumanMessageEntity> listConsultantHumanMessages(String humanChatId) {
+        return consultantHumanMessages.values().stream()
+                .filter(message -> Objects.equals(humanChatId, message.getHumanChatId()))
+                .sorted(Comparator.comparing(ConsultantHumanMessageEntity::getCreatedAt)
+                        .thenComparing(ConsultantHumanMessageEntity::getId))
+                .collect(Collectors.toList());
+    }
+
+    public synchronized long countInProgressProjectsByDesigner(Long designerId) {
+        return projects.values().stream()
+                .filter(project -> designerId.equals(project.getDesignerId()))
+                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
     }
 
     public synchronized long countReachedStages(Long projectId) {

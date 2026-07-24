@@ -9,6 +9,41 @@ export type FileStatus = 'ACTIVE' | 'DELETED'
 export type FileRole = 'MATERIAL' | 'REPORT' | 'DRAFT' | 'FINAL' | 'CONTRACT' | 'DELIVERABLE' | 'OTHER'
 export type StageActionStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
 
+export interface ConsultantIntakeRequest {
+  projectType: string
+  industry: string
+  requirementDescription: string
+  budgetRange: string
+  projectCycle: string
+}
+
+export interface MatchedDesignerVO {
+  id: number
+  nickname: string
+  avatar?: string | null
+  online: boolean
+  specialties: string[]
+}
+
+export interface ConsultantIntakeResponse {
+  intakeId: number
+  status: string
+  matchedDesigner: MatchedDesignerVO
+  humanChatId: string
+  greetingMessages: string[]
+  createdAt: string
+}
+
+export interface ConsultantHumanMessageVO {
+  id: number
+  humanChatId: string
+  senderId: number
+  senderRole: 'CUSTOMER' | 'DESIGNER'
+  senderName: string
+  content: string
+  createdAt: string
+}
+
 export interface Result<T> {
   code: number
   message: string
