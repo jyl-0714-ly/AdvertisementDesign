@@ -7,6 +7,8 @@ import ProjectView from '@/views/ProjectView.vue'
 import PortfolioView from '@/views/PortfolioView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
+import ReceptionCenterView from '@/views/ReceptionCenterView.vue'
+import ReceptionChatView from '@/views/ReceptionChatView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -15,7 +17,9 @@ const routes = [
     path: '/',
     component: MainLayout,
     children: [
-      { path: 'dashboard', redirect: '/projects' },
+      { path: 'dashboard', redirect: '/reception' },
+      { path: 'reception', component: ReceptionCenterView, meta: { title: '客户接待中心' } },
+      { path: 'reception/:intakeId', component: ReceptionChatView, meta: { title: '客户接待' } },
       { path: 'projects', component: ProjectsView, meta: { title: '项目' } },
       { path: 'projects/:id', component: ProjectView, meta: { title: '项目详情' } },
       { path: 'workbench', component: WorkbenchView, meta: { title: '客户沟通' } },

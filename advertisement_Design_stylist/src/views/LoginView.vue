@@ -95,7 +95,7 @@ async function submit() {
     loading.value = true
     await auth.login(form.email, form.password)
     ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/projects'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/reception'
     await router.replace(redirect)
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '登录失败')

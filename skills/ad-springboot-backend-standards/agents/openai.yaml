@@ -1,5 +1,4 @@
 interface:
-  display_name: "广告平台后端规范"
-  short_description: "广告平台 Spring Boot 后端开发规范"
-  default_prompt: "Use $ad-springboot-backend-standards to implement backend code for advertisement_Design_back."
-
+  display_name: "广告平台模块化后端规范"
+  short_description: "模块化单体 Spring Boot 后端开发与迁移规范"
+  default_prompt: "Use $ad-springboot-backend-standards to develop or refactor advertisement_Design_back according to its Modular Monolith boundaries."

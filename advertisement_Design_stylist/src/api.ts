@@ -1,4 +1,6 @@
 import type {
+  ConsultantHumanMessageVO,
+  ConsultantReceptionVO,
   ConversationReadStateVO,
   ConversationVO,
   CreateProjectFileRequest,
@@ -116,6 +118,25 @@ export function confirmStageAction(actionId: number, payload: StageActionRespons
 }
 export function rejectStageAction(actionId: number, payload: StageActionResponseRequest = {}) {
   return request<StageActionVO>(`/stage-actions/${actionId}/reject`, { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export function listConsultantReceptions() {
+  return request<ConsultantReceptionVO[]>('/consultant-intakes/designer-receptions')
+}
+export function getConsultantReception(intakeId: number) {
+  return request<ConsultantReceptionVO>(`/consultant-intakes/designer-receptions/${intakeId}`)
+}
+export function acceptConsultantReception(intakeId: number) {
+  return request<ConsultantReceptionVO>(`/consultant-intakes/designer-receptions/${intakeId}/accept`, { method: 'POST' })
+}
+export function listConsultantHumanMessages(humanChatId: string) {
+  return request<ConsultantHumanMessageVO[]>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`)
+}
+export function sendConsultantHumanMessage(humanChatId: string, content: string) {
+  return request<ConsultantHumanMessageVO>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content })
+  })
 }
 
 export function listConversations() { return request<ConversationVO[]>('/conversations') }

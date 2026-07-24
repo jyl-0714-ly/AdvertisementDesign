@@ -5,6 +5,7 @@ import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.domain.entity.DesignerProfileEntity;
 import com.advertisementdesign.back.domain.entity.ProjectEntity;
 import com.advertisementdesign.back.domain.entity.UserEntity;
+import com.advertisementdesign.back.domain.enums.ConsultantIntakeStatus;
 import com.advertisementdesign.back.domain.enums.ProjectStatus;
 import com.advertisementdesign.back.domain.enums.UserRole;
 import com.advertisementdesign.back.domain.enums.UserStatus;
@@ -90,6 +91,53 @@ class ConsultantIntakeServiceTest {
                 () -> service.submit(request("品牌设计", "餐饮")));
 
         assertEquals(403, exception.getCode());
+    }
+
+    @Test
+    void matchedDesignerCanListAndIdempotentlyAcceptReception() {
+        DemoDataStore store = new DemoDataStore();
+        ConsultantIntakeModels.ConsultantIntakeVO submitted = new ConsultantIntakeService(
+                store, authFor(store.findUserById(1L).orElseThrow()))
+                .submit(request("品牌设计", "餐饮"));
+        ConsultantIntakeService designerService = new ConsultantIntakeService(
+                store, authFor(store.findUserById(submitted.matchedDesigner().id()).orElseThrow()));
+
+        List<ConsultantIntakeModels.DesignerReceptionVO> receptions = designerService.listDesignerReceptions();
+        ConsultantIntakeModels.DesignerReceptionVO accepted = designerService.accept(submitted.intakeId());
+        ConsultantIntakeModels.DesignerReceptionVO acceptedAgain = designerService.accept(submitted.intakeId());
+
+        assertEquals(1, receptions.size());
+        assertEquals(submitted.intakeId(), receptions.get(0).intakeId());
+        assertEquals(ConsultantIntakeStatus.MATCHED, receptions.get(0).status());
+        assertEquals(ConsultantIntakeStatus.ACCEPTED, accepted.status());
+        assertEquals(ConsultantIntakeStatus.ACCEPTED, acceptedAgain.status());
+        assertEquals(submitted.humanChatId(), accepted.humanChatId());
+    }
+
+    @Test
+    void unrelatedOrDisabledDesignerCannotAccessReception() {
+        DemoDataStore store = new DemoDataStore();
+        addDesigner(store, 3L, "其他设计师", true, List.of("包装设计"));
+        ConsultantIntakeModels.ConsultantIntakeVO submitted = new ConsultantIntakeService(
+                store, authFor(store.findUserById(1L).orElseThrow()))
+                .submit(request("品牌设计", "餐饮"));
+
+        ConsultantIntakeService unrelatedService = new ConsultantIntakeService(
+                store, authFor(store.findUserById(3L).orElseThrow()));
+        assertEquals(403, assertThrows(ApiException.class,
+                () -> unrelatedService.getDesignerReception(submitted.intakeId())).getCode());
+
+        UserEntity matchedDesigner = store.findUserById(submitted.matchedDesigner().id()).orElseThrow();
+        matchedDesigner.setStatus(UserStatus.DISABLED);
+        ConsultantIntakeService disabledService = new ConsultantIntakeService(store, authFor(matchedDesigner));
+        assertEquals(403, assertThrows(ApiException.class,
+                disabledService::listDesignerReceptions).getCode());
+    }
+
+    private AuthService authFor(UserEntity user) {
+        AuthService authService = mock(AuthService.class);
+        when(authService.currentUserEntity()).thenReturn(user);
+        return authService;
     }
 
     private ConsultantIntakeModels.SubmitConsultantIntakeRequest request(String projectType, String industry) {

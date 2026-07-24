@@ -477,6 +477,14 @@ public class DemoDataStore {
         return Optional.ofNullable(consultantIntakes.get(id));
     }
 
+    public synchronized List<ConsultantIntakeEntity> listConsultantIntakesByDesigner(Long designerId) {
+        return consultantIntakes.values().stream()
+                .filter(intake -> Objects.equals(designerId, intake.getMatchedDesignerId()))
+                .sorted(Comparator.comparing(ConsultantIntakeEntity::getCreatedAt).reversed()
+                        .thenComparing(ConsultantIntakeEntity::getId, Comparator.reverseOrder()))
+                .collect(Collectors.toList());
+    }
+
     public synchronized Optional<ConsultantIntakeEntity> findConsultantIntakeByHumanChatId(String humanChatId) {
         return consultantIntakes.values().stream()
                 .filter(intake -> Objects.equals(humanChatId, intake.getHumanChatId()))

@@ -1,7 +1,7 @@
 <template>
-  <div class="designer-shell" :class="{ 'designer-shell--workbench': route.path === '/workbench' }">
+  <div class="designer-shell" :class="{ 'designer-shell--workbench': fullScreenMode }">
     <header class="designer-header">
-      <button class="designer-brand" type="button" @click="router.push('/projects')"><span>AD</span><strong>{{ appName }}</strong></button>
+      <button class="designer-brand" type="button" @click="router.push('/reception')"><span>AD</span><strong>{{ appName }}</strong></button>
       <nav class="designer-nav">
         <button v-for="item in navItems" :key="item.path" type="button" :class="{ active: route.path === item.path || route.path.startsWith(`${item.path}/`) }" @click="router.push(item.path)">
           <el-icon><component :is="item.icon" /></el-icon>{{ item.label }}
@@ -25,11 +25,12 @@
         <button type="button" class="designer-logout" @click="logout">退出</button>
       </div>
     </header>
-    <main class="designer-main" :class="{ 'designer-main--workbench': route.path === '/workbench' }"><router-view :key="route.fullPath" /></main>
+    <main class="designer-main" :class="{ 'designer-main--workbench': fullScreenMode }"><router-view :key="route.fullPath" /></main>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { appName, navItems } from '@/config'
@@ -39,6 +40,7 @@ import { roleLabel } from '@/utils/displayLabels'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const fullScreenMode = computed(() => route.path === '/workbench' || /^\/reception\/\d+$/.test(route.path))
 
 async function logout() {
   await ElMessageBox.confirm('确认退出当前账号？', '退出登录', { type: 'warning' })

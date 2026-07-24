@@ -23,7 +23,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ConsultantIntakeService {
-    private static final String DESIGNER_HANDOFF_GREETING = "您的需求已整理完成，我已收到需求摘要。";
+    private static final String DESIGNER_HANDOFF_GREETING = "您的需求已整理完成，请稍等。";
 
     private final DemoDataStore store;
     private final AuthService authService;
@@ -79,6 +79,83 @@ public class ConsultantIntakeService {
         );
     }
 
+    public List<ConsultantIntakeModels.DesignerReceptionVO> listDesignerReceptions() {
+        UserEntity designer = authService.currentUserEntity();
+        ensureDesigner(designer);
+        return store.listConsultantIntakesByDesigner(designer.getId()).stream()
+                .map(this::toDesignerReceptionVO)
+                .toList();
+    }
+
+    public ConsultantIntakeModels.DesignerReceptionVO getDesignerReception(Long intakeId) {
+        UserEntity designer = authService.currentUserEntity();
+        ensureDesigner(designer);
+        return toDesignerReceptionVO(accessibleDesignerIntake(intakeId, designer));
+    }
+
+    public ConsultantIntakeModels.DesignerReceptionVO accept(Long intakeId) {
+        UserEntity designer = authService.currentUserEntity();
+        ensureDesigner(designer);
+        ConsultantIntakeEntity intake = accessibleDesignerIntake(intakeId, designer);
+        if (intake.getStatus() == ConsultantIntakeStatus.MATCHED) {
+            intake.setStatus(ConsultantIntakeStatus.ACCEPTED);
+            store.saveConsultantIntake(intake);
+        }
+        return toDesignerReceptionVO(intake);
+    }
+
+    private ConsultantIntakeEntity accessibleDesignerIntake(Long intakeId, UserEntity designer) {
+        ConsultantIntakeEntity intake = store.findConsultantIntakeById(intakeId)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        if (!designer.getId().equals(intake.getMatchedDesignerId())) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN);
+        }
+        return intake;
+    }
+
+    private ConsultantIntakeModels.DesignerReceptionVO toDesignerReceptionVO(ConsultantIntakeEntity intake) {
+        UserEntity customer = store.findUserById(intake.getCustomerId())
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        DesignerProfileEntity profile = store.findDesignerProfile(intake.getMatchedDesignerId()).orElse(null);
+        boolean specialtyMatched = profile != null && profile.getSpecialties() != null
+                && profile.getSpecialties().stream()
+                .map(this::normalize)
+                .anyMatch(specialty -> specialty.equals(normalize(intake.getProjectType()))
+                        || specialty.equals(normalize(intake.getIndustry())));
+        int score = 78
+                + (profile != null && Boolean.TRUE.equals(profile.getOnline()) ? 8 : 0)
+                + (specialtyMatched ? 6 : 0)
+                + (store.countInProgressProjectsByDesigner(intake.getMatchedDesignerId()) == 0 ? 4 : 0);
+        boolean online = profile != null && Boolean.TRUE.equals(profile.getOnline());
+        long activeProjectCount = store.countInProgressProjectsByDesigner(intake.getMatchedDesignerId());
+        String reason;
+        if (specialtyMatched && online) {
+            reason = "当前在线，且您的专业方向与该需求高度匹配";
+        } else if (specialtyMatched) {
+            reason = "您的专业方向与该需求高度匹配";
+        } else if (online && activeProjectCount == 0) {
+            reason = "当前在线且项目负载较低，适合及时接待";
+        } else {
+            reason = "当前项目负载适合接待该客户";
+        }
+        return new ConsultantIntakeModels.DesignerReceptionVO(
+                intake.getId(),
+                intake.getStatus(),
+                customer.getId(),
+                customer.getNickname(),
+                customer.getAvatar(),
+                intake.getProjectType(),
+                intake.getIndustry(),
+                intake.getRequirementDescription(),
+                intake.getBudgetRange(),
+                intake.getProjectCycle(),
+                Math.min(score, 96),
+                reason,
+                intake.getHumanChatId(),
+                intake.getCreatedAt().toString()
+        );
+    }
+
     private DesignerProfileEntity matchDesigner(ConsultantIntakeModels.SubmitConsultantIntakeRequest request) {
         return store.listDesignerProfiles().stream()
                 .filter(profile -> Boolean.TRUE.equals(profile.getEnabled()))
@@ -105,6 +182,12 @@ public class ConsultantIntakeService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void ensureDesigner(UserEntity user) {
+        if (user.getRole() != UserRole.DESIGNER || user.getStatus() != UserStatus.ENABLED) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN);
+        }
     }
 
     private void ensureCustomer(UserEntity user) {

@@ -42,6 +42,25 @@ public final class ConsultantIntakeModels {
     ) {
     }
 
+    @Schema(description = "设计师客户接待中心需求卡片")
+    public record DesignerReceptionVO(
+            Long intakeId,
+            ConsultantIntakeStatus status,
+            Long customerId,
+            String customerName,
+            String customerAvatar,
+            String projectType,
+            String industry,
+            String requirementDescription,
+            String budgetRange,
+            String projectCycle,
+            int matchScore,
+            String matchReason,
+            String humanChatId,
+            String createdAt
+    ) {
+    }
+
     @Schema(description = "顾问需求提交与设计师交接结果")
     public record ConsultantIntakeVO(
             Long intakeId,
