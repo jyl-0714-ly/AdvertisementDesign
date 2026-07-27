@@ -1,0 +1,274 @@
+package com.advertisementdesign.back.portfolio.service;
+
+import com.advertisementdesign.back.common.api.PageResult;
+import com.advertisementdesign.back.common.exception.ApiException;
+import com.advertisementdesign.back.common.web.CurrentUser;
+import com.advertisementdesign.back.identity.enums.UserRole;
+import com.advertisementdesign.back.portfolio.entity.PortfolioCaseEntity;
+import com.advertisementdesign.back.portfolio.enums.PortfolioCategory;
+import com.advertisementdesign.back.portfolio.enums.PortfolioStatus;
+import com.advertisementdesign.back.portfolio.mapper.PortfolioCaseMapper;
+import com.advertisementdesign.back.portfolio.model.PortfolioModels;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class PortfolioCaseServiceTest {
+    @Mock
+    private PortfolioCaseMapper portfolioCaseMapper;
+
+    private PortfolioCaseService portfolioCaseService;
+
+    @BeforeAll
+    static void initializeTableMetadata() {
+        MybatisConfiguration configuration = new MybatisConfiguration();
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "portfolio-test");
+        assistant.setCurrentNamespace(PortfolioCaseMapper.class.getName());
+        TableInfoHelper.initTableInfo(assistant, PortfolioCaseEntity.class);
+    }
+
+    @BeforeEach
+    void setUp() {
+        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper);
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void anonymousListRestrictsResultsBeforePaginationAndAppliesFilters() {
+        mockPageResult(List.of(entity(1L, PortfolioStatus.PUBLISHED, true)), 1L);
+
+        PageResult<PortfolioModels.PortfolioCaseVO> result = portfolioCaseService.list(
+                PortfolioCategory.BRAND, "餐饮", "极简", "咖啡", true, 1, 10);
+
+        Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
+        String sql = wrapper.getSqlSegment();
+        Map<String, Object> parameters = wrapper.getParamNameValuePairs();
+        assertTrue(sql.contains("status"));
+        assertTrue(sql.contains("featured"));
+        assertTrue(sql.contains("category"));
+        assertTrue(sql.contains("industry"));
+        assertTrue(sql.contains("style"));
+        assertTrue(sql.contains("title") && sql.contains("description") && sql.contains("service_type"));
+        assertTrue(sql.contains("ORDER BY sort_order ASC"));
+        assertTrue(parameters.containsValue(PortfolioStatus.PUBLISHED));
+        assertTrue(parameters.containsValue(Boolean.TRUE));
+        assertTrue(parameters.containsValue(PortfolioCategory.BRAND));
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+    }
+
+    @Test
+    void customerListSeesAllPublishedCasesButNotDraftsOrOfflineCases() {
+        authenticate(UserRole.CUSTOMER);
+        mockPageResult(List.of(entity(1L, PortfolioStatus.PUBLISHED, false)), 1L);
+
+        portfolioCaseService.list(null, null, null, null, null, 1, 10);
+
+        Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(PortfolioStatus.PUBLISHED));
+        assertFalse(wrapper.getSqlSegment().contains("featured"));
+    }
+
+    @Test
+    void designerListDoesNotAddVisibilityRestrictions() {
+        authenticate(UserRole.DESIGNER);
+        mockPageResult(List.of(entity(2L, PortfolioStatus.DRAFT, false)), 1L);
+
+        portfolioCaseService.list(null, null, null, null, null, 1, 10);
+
+        Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
+        assertFalse(wrapper.getSqlSegment().contains("status"));
+        assertFalse(wrapper.getSqlSegment().contains("featured"));
+        assertTrue(wrapper.getSqlSegment().contains("ORDER BY sort_order ASC"));
+    }
+
+    @Test
+    void invisibleOrMissingDetailReturnsNotFound() {
+        when(portfolioCaseMapper.selectOne(any())).thenReturn(null);
+
+        ApiException exception = assertThrows(ApiException.class, () -> portfolioCaseService.detail(99L));
+
+        assertEquals(404, exception.getCode());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Wrapper<PortfolioCaseEntity>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(portfolioCaseMapper).selectOne(captor.capture());
+        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(PortfolioStatus.PUBLISHED));
+        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(Boolean.TRUE));
+        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(99L));
+    }
+
+    @Test
+    void createUsesDefaultsAndPersistsWithGeneratedId() {
+        authenticate(UserRole.DESIGNER);
+        when(portfolioCaseMapper.insert(any())).thenAnswer(invocation -> {
+            PortfolioCaseEntity entity = invocation.getArgument(0);
+            entity.setId(7L);
+            return 1;
+        });
+        PortfolioModels.PortfolioCaseRequest request = request(null, null, null);
+
+        PortfolioModels.PortfolioCaseVO result = portfolioCaseService.create(request);
+
+        ArgumentCaptor<PortfolioCaseEntity> captor = ArgumentCaptor.forClass(PortfolioCaseEntity.class);
+        verify(portfolioCaseMapper).insert(captor.capture());
+        PortfolioCaseEntity persisted = captor.getValue();
+        assertEquals(0, persisted.getSortOrder());
+        assertFalse(persisted.getFeatured());
+        assertEquals(PortfolioStatus.PUBLISHED, persisted.getStatus());
+        assertNotNull(persisted.getCreatedAt());
+        assertNotNull(persisted.getUpdatedAt());
+        assertEquals(7L, result.id());
+    }
+
+    @Test
+    void updateChangesProvidedFieldsAndPersistsExistingEntity() {
+        authenticate(UserRole.DESIGNER);
+        PortfolioCaseEntity existing = entity(1L, PortfolioStatus.DRAFT, false);
+        when(portfolioCaseMapper.selectById(1L)).thenReturn(existing);
+        PortfolioModels.PortfolioCaseRequest request = request(8, true, PortfolioStatus.PUBLISHED);
+
+        PortfolioModels.PortfolioCaseVO result = portfolioCaseService.update(1L, request);
+
+        assertEquals("更新后的案例", existing.getTitle());
+        assertEquals(8, existing.getSortOrder());
+        assertTrue(existing.getFeatured());
+        assertEquals(PortfolioStatus.PUBLISHED, existing.getStatus());
+        verify(portfolioCaseMapper).updateById(existing);
+        assertEquals("更新后的案例", result.title());
+    }
+
+    @Test
+    void deleteSoftDeletesBySettingOfflineStatus() {
+        authenticate(UserRole.DESIGNER);
+        PortfolioCaseEntity existing = entity(1L, PortfolioStatus.PUBLISHED, true);
+        when(portfolioCaseMapper.selectById(1L)).thenReturn(existing);
+
+        assertTrue(portfolioCaseService.delete(1L));
+
+        assertEquals(PortfolioStatus.OFFLINE, existing.getStatus());
+        verify(portfolioCaseMapper).updateById(existing);
+    }
+
+    @Test
+    void anonymousAndCustomerMutationsAreRejected() {
+        ApiException unauthorized = assertThrows(ApiException.class,
+                () -> portfolioCaseService.create(request(null, null, null)));
+        assertEquals(401, unauthorized.getCode());
+
+        authenticate(UserRole.CUSTOMER);
+        ApiException forbidden = assertThrows(ApiException.class,
+                () -> portfolioCaseService.delete(1L));
+        assertEquals(403, forbidden.getCode());
+        verify(portfolioCaseMapper, never()).insert(any());
+        verify(portfolioCaseMapper, never()).updateById(any());
+    }
+
+    @Test
+    void updateMissingCaseReturnsNotFound() {
+        authenticate(UserRole.DESIGNER);
+        when(portfolioCaseMapper.selectById(404L)).thenReturn(null);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> portfolioCaseService.update(404L, request(1, false, PortfolioStatus.DRAFT)));
+
+        assertEquals(404, exception.getCode());
+        verify(portfolioCaseMapper, never()).updateById(any());
+    }
+
+    private void mockPageResult(List<PortfolioCaseEntity> records, long total) {
+        when(portfolioCaseMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+            Page<PortfolioCaseEntity> page = invocation.getArgument(0);
+            page.setRecords(records);
+            page.setTotal(total);
+            return page;
+        });
+    }
+
+    private Wrapper<PortfolioCaseEntity> capturedListWrapper() {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Wrapper<PortfolioCaseEntity>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(portfolioCaseMapper).selectPage(any(Page.class), captor.capture());
+        return captor.getValue();
+    }
+
+    private void authenticate(UserRole role) {
+        CurrentUser currentUser = CurrentUser.builder()
+                .id(10L)
+                .email("portfolio-test@example.com")
+                .nickname("测试用户")
+                .role(role)
+                .build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(currentUser, null, List.of()));
+    }
+
+    private PortfolioCaseEntity entity(Long id, PortfolioStatus status, boolean featured) {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 24, 10, 0);
+        return PortfolioCaseEntity.builder()
+                .id(id)
+                .title("案例")
+                .category(PortfolioCategory.BRAND)
+                .industry("餐饮")
+                .style("极简")
+                .serviceType("品牌设计")
+                .coverUrl("https://example.com/cover.jpg")
+                .imageUrls(List.of("https://example.com/image.jpg"))
+                .description("案例描述")
+                .sortOrder(1)
+                .featured(featured)
+                .status(status)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+    }
+
+    private PortfolioModels.PortfolioCaseRequest request(
+            Integer sortOrder,
+            Boolean featured,
+            PortfolioStatus status) {
+        return new PortfolioModels.PortfolioCaseRequest(
+                "更新后的案例",
+                PortfolioCategory.BRAND,
+                "餐饮",
+                "极简",
+                "品牌设计",
+                "https://example.com/new-cover.jpg",
+                List.of("https://example.com/new-image.jpg"),
+                "更新后的案例描述",
+                sortOrder,
+                featured,
+                status
+        );
+    }
+}

@@ -1,6 +1,6 @@
 package com.advertisementdesign.back.common.web;
 
-import com.advertisementdesign.back.domain.enums.UserRole;
+import com.advertisementdesign.back.identity.enums.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

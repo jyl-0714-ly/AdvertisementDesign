@@ -15,6 +15,9 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `operation_log`;
+DROP TABLE IF EXISTS `consultant_human_message`;
+DROP TABLE IF EXISTS `consultant_intake`;
+DROP TABLE IF EXISTS `designer_profile`;
 DROP TABLE IF EXISTS `conversation_read_state`;
 DROP TABLE IF EXISTS `message_file`;
 DROP TABLE IF EXISTS `project_file`;
@@ -49,6 +52,55 @@ CREATE TABLE `user` (
   CONSTRAINT `chk_user_role` CHECK (`role` IN ('CUSTOMER', 'DESIGNER')),
   CONSTRAINT `chk_user_status` CHECK (`status` IN ('ENABLED', 'DISABLED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户表';
+
+CREATE TABLE `designer_profile` (
+  `designer_id` BIGINT NOT NULL COMMENT '设计师用户 ID',
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否参与自动匹配',
+  `online` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否在线',
+  `specialties` JSON DEFAULT NULL COMMENT '专业方向列表',
+  PRIMARY KEY (`designer_id`),
+  CONSTRAINT `fk_designer_profile_user` FOREIGN KEY (`designer_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_designer_profile_enabled` CHECK (`enabled` IN (0, 1)),
+  CONSTRAINT `chk_designer_profile_online` CHECK (`online` IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='咨询设计师匹配档案表';
+
+CREATE TABLE `consultant_intake` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `customer_id` BIGINT NOT NULL COMMENT '提交需求的客户 ID',
+  `project_type` VARCHAR(100) NOT NULL COMMENT '项目类型',
+  `industry` VARCHAR(100) NOT NULL COMMENT '所属行业',
+  `requirement_description` TEXT NOT NULL COMMENT '需求描述',
+  `budget_range` VARCHAR(100) NOT NULL COMMENT '预算范围',
+  `project_cycle` VARCHAR(100) NOT NULL COMMENT '项目周期',
+  `status` VARCHAR(32) NOT NULL COMMENT '状态：MATCHED / ACCEPTED',
+  `matched_designer_id` BIGINT NOT NULL COMMENT '匹配设计师 ID',
+  `human_chat_id` VARCHAR(64) NOT NULL COMMENT '人工咨询会话业务 ID',
+  `greeting_messages` JSON NOT NULL COMMENT '交接问候语列表',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_consultant_intake_human_chat` (`human_chat_id`),
+  KEY `idx_consultant_intake_customer` (`customer_id`),
+  KEY `idx_consultant_intake_designer_created` (`matched_designer_id`, `created_at`),
+  CONSTRAINT `fk_consultant_intake_customer` FOREIGN KEY (`customer_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `fk_consultant_intake_designer` FOREIGN KEY (`matched_designer_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `chk_consultant_intake_status` CHECK (`status` IN ('MATCHED', 'ACCEPTED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='咨询需求单表';
+
+CREATE TABLE `consultant_human_message` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `human_chat_id` VARCHAR(64) NOT NULL COMMENT '人工咨询会话业务 ID',
+  `sender_id` BIGINT NOT NULL COMMENT '发送人 ID',
+  `sender_role` VARCHAR(32) NOT NULL COMMENT '发送方角色：CUSTOMER / DESIGNER',
+  `content` TEXT NOT NULL COMMENT '消息内容',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_consultant_message_chat_created` (`human_chat_id`, `created_at`, `id`),
+  KEY `idx_consultant_message_sender` (`sender_id`),
+  CONSTRAINT `fk_consultant_message_chat` FOREIGN KEY (`human_chat_id`) REFERENCES `consultant_intake` (`human_chat_id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_consultant_message_sender` FOREIGN KEY (`sender_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `chk_consultant_message_role` CHECK (`sender_role` IN ('CUSTOMER', 'DESIGNER'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='咨询人工消息表';
 
 CREATE TABLE `file_asset` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -306,6 +358,9 @@ CREATE TABLE `operation_log` (
 INSERT INTO `user` (`id`, `email`, `phone`, `password_hash`, `nickname`, `role`, `avatar`, `status`, `last_login_at`, `created_at`, `updated_at`) VALUES
 (1, 'customer@163.com', NULL, '$2a$10$jFVkPRlTCuJNU3/bc97SZO4GjjiK9QRRIk8pH82/AUt5Efxlxttte', '演示客户', 'CUSTOMER', 'https://example.com/avatar/customer.png', 'ENABLED', NULL, '2026-07-20 10:00:00', '2026-07-20 10:00:00'),
 (2, 'designer@example.com', NULL, '$2a$10$ycsJGmPT5IGSN1bN5vTwA.J.8v83fnmr2RtMDGk3OLbPvjrc5en6S', '演示设计师', 'DESIGNER', 'https://example.com/avatar/designer.png', 'ENABLED', NULL, '2026-07-20 10:00:00', '2026-07-20 10:00:00');
+
+INSERT INTO `designer_profile` (`designer_id`, `enabled`, `online`, `specialties`) VALUES
+(2, 1, 1, JSON_ARRAY('品牌设计', '海报设计', '餐饮', '教育'));
 
 INSERT INTO `file_asset` (`id`, `uploader_id`, `original_name`, `storage_name`, `storage_provider`, `bucket_name`, `object_key`, `url`, `mime_type`, `file_size`, `file_hash`, `status`, `created_at`, `updated_at`) VALUES
 (1, 2, '山野咖啡资料调研报告.pdf', 'project-1-research-report.pdf', 'LOCAL', NULL, 'demo/project-1/project-1-research-report.pdf', 'https://example.com/files/project-1-research-report.pdf', 'application/pdf', 2483200, 'demo-hash-project-1-report', 'ACTIVE', '2026-07-20 11:20:00', '2026-07-20 11:20:00'),
