@@ -12,6 +12,7 @@ import com.advertisementdesign.back.portfolio.enums.PortfolioStatus;
 import com.advertisementdesign.back.portfolio.mapper.PortfolioCaseMapper;
 import com.advertisementdesign.back.portfolio.model.PortfolioModels;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -78,7 +79,7 @@ class PortfolioCaseServiceTest {
 
         Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
         String sql = wrapper.getSqlSegment();
-        Map<String, Object> parameters = wrapper.getParamNameValuePairs();
+        Map<String, Object> parameters = parameters(wrapper);
         assertTrue(sql.contains("status"));
         assertTrue(sql.contains("featured"));
         assertTrue(sql.contains("category"));
@@ -101,7 +102,7 @@ class PortfolioCaseServiceTest {
         portfolioCaseService.list(null, null, null, null, null, 1, 10);
 
         Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
-        assertTrue(wrapper.getParamNameValuePairs().containsValue(PortfolioStatus.PUBLISHED));
+        assertTrue(parameters(wrapper).containsValue(PortfolioStatus.PUBLISHED));
         assertFalse(wrapper.getSqlSegment().contains("featured"));
     }
 
@@ -128,9 +129,9 @@ class PortfolioCaseServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Wrapper<PortfolioCaseEntity>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(portfolioCaseMapper).selectOne(captor.capture());
-        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(PortfolioStatus.PUBLISHED));
-        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(Boolean.TRUE));
-        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(99L));
+        assertTrue(parameters(captor.getValue()).containsValue(PortfolioStatus.PUBLISHED));
+        assertTrue(parameters(captor.getValue()).containsValue(Boolean.TRUE));
+        assertTrue(parameters(captor.getValue()).containsValue(99L));
     }
 
     @Test
@@ -271,6 +272,12 @@ class PortfolioCaseServiceTest {
             page.setTotal(total);
             return page;
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parameters(Wrapper<PortfolioCaseEntity> wrapper) {
+        return ((AbstractWrapper<PortfolioCaseEntity, ?, ?>) wrapper)
+                .getParamNameValuePairs();
     }
 
     private Wrapper<PortfolioCaseEntity> capturedListWrapper() {

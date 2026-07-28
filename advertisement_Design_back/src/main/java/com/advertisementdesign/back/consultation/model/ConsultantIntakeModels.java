@@ -87,6 +87,7 @@ public final class ConsultantIntakeModels {
             String projectCycle,
             MatchedDesignerVO matchedDesigner,
             String humanChatId,
+            Long conversationId,
             List<String> greetingMessages,
             String createdAt
     ) {

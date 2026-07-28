@@ -49,6 +49,8 @@ public interface ProjectRepository {
 
     boolean existsProjectFile(Long projectId, Long fileId);
 
+    boolean isFileAssociatedWithProject(Long fileId);
+
     boolean canUserAccessFile(Long fileId, Long userId);
 
     boolean deleteProjectFile(Long id);

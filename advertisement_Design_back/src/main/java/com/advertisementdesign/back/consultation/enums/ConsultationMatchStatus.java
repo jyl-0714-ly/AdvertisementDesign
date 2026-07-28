@@ -5,5 +5,6 @@ public enum ConsultationMatchStatus {
     ACKNOWLEDGED,
     REJECTED,
     EXPIRED,
+    NO_CANDIDATE,
     CANCELLED
 }

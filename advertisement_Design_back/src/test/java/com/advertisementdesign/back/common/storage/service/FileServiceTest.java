@@ -7,7 +7,7 @@ import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
-import com.advertisementdesign.back.communication.repository.CommunicationRepository;
+import com.advertisementdesign.back.communication.service.ConversationAccessService;
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.identity.enums.UserRole;
@@ -33,7 +33,7 @@ class FileServiceTest {
     @Mock
     private StorageRepository storageRepository;
     @Mock
-    private CommunicationRepository communicationRepository;
+    private ConversationAccessService conversationAccessService;
     @Mock
     private ProjectRepository projectRepository;
     @Mock
@@ -48,7 +48,7 @@ class FileServiceTest {
     @BeforeEach
     void setUp() {
         fileService = new FileService(
-                storageRepository, communicationRepository, projectRepository,
+                storageRepository, conversationAccessService, projectRepository,
                 localFileStorage, converter, authService);
     }
 
@@ -80,7 +80,8 @@ class FileServiceTest {
     void conversationParticipantCanDownloadAttachedFile() throws IOException {
         when(storageRepository.findById(8L)).thenReturn(Optional.of(activeFile(8L, 2L)));
         when(authService.currentUserProfile()).thenReturn(user(1L));
-        when(communicationRepository.canUserAccessAttachedFile(8L, 1L)).thenReturn(true);
+        when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
+        when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(true);
         when(localFileStorage.read(null, "uploads/8/attachment.pdf"))
                 .thenReturn("attachment content".getBytes());
 
@@ -94,12 +95,29 @@ class FileServiceTest {
     void unrelatedUserCannotDownloadAttachedFile() {
         when(storageRepository.findById(8L)).thenReturn(Optional.of(activeFile(8L, 2L)));
         when(authService.currentUserProfile()).thenReturn(user(99L));
-        when(communicationRepository.canUserAccessAttachedFile(8L, 99L)).thenReturn(false);
+        when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
+        when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(false);
         when(projectRepository.canUserAccessFile(8L, 99L)).thenReturn(false);
 
         ApiException exception = assertThrows(ApiException.class, () -> fileService.download(8L));
 
         assertEquals(403, exception.getCode());
+    }
+
+    @Test
+    void formerUploaderCannotDownloadConversationFileAfterLosingAccess()
+            throws java.io.IOException {
+        when(storageRepository.findById(8L)).thenReturn(Optional.of(activeFile(8L, 2L)));
+        when(authService.currentUserProfile()).thenReturn(
+                new UserProfile(2L, "原设计师", UserRole.DESIGNER, null, UserStatus.ENABLED));
+        when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
+        when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(false);
+        when(projectRepository.canUserAccessFile(8L, 2L)).thenReturn(false);
+
+        ApiException exception = assertThrows(ApiException.class, () -> fileService.download(8L));
+
+        assertEquals(403, exception.getCode());
+        verify(localFileStorage, never()).read(null, "uploads/8/attachment.pdf");
     }
 
     @Test

@@ -42,6 +42,23 @@ public class CommunicationRepository {
                 .eq(ConversationEntity::getProjectId, projectId)));
     }
 
+    public Optional<ConversationEntity> findConversationByConsultantIntakeId(
+            Long consultantIntakeId) {
+        return Optional.ofNullable(conversationMapper.selectOne(
+                new LambdaQueryWrapper<ConversationEntity>()
+                        .eq(ConversationEntity::getConsultantIntakeId, consultantIntakeId)));
+    }
+
+    public Optional<ConversationEntity> findConversationByConsultantIntakeIdForUpdate(
+            Long consultantIntakeId) {
+        return Optional.ofNullable(conversationMapper
+                .selectByConsultantIntakeIdForUpdate(consultantIntakeId));
+    }
+
+    public Optional<ConversationEntity> findConversationByAttachedFileId(Long fileId) {
+        return Optional.ofNullable(conversationMapper.selectByAttachedFileId(fileId));
+    }
+
     public ConversationEntity saveConversation(ConversationEntity conversation) {
         LocalDateTime now = LocalDateTime.now();
         if (conversation.getId() == null) {

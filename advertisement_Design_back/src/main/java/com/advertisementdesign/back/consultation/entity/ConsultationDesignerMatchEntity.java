@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,6 +44,8 @@ public class ConsultationDesignerMatchEntity {
     private LocalDateTime rejectedAt;
     private LocalDateTime expiredAt;
     private LocalDateTime cancelledAt;
+    @Version
+    private Integer version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -2,8 +2,10 @@ package com.advertisementdesign.back.consultation.service;
 
 import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.exception.ApiException;
+import com.advertisementdesign.back.communication.entity.MessageEntity;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
-import com.advertisementdesign.back.consultation.entity.ConsultantHumanMessageEntity;
+import com.advertisementdesign.back.communication.enums.MessageType;
+import com.advertisementdesign.back.communication.service.UnifiedConversationService;
 import com.advertisementdesign.back.consultation.entity.ConsultantIntakeEntity;
 import com.advertisementdesign.back.consultation.model.ConsultantHumanChatModels;
 import com.advertisementdesign.back.consultation.repository.ConsultationRepository;
@@ -27,12 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConsultantHumanChatServiceTest {
 
     @Test
-    void customerAndMatchedDesignerCanUsePersistedChatWithAuthenticatedSender() {
+    void customerAndMatchedDesignerUseUnifiedMessagesWithAuthenticatedSender() {
         Fixture fixture = new Fixture();
         ConsultantHumanChatService customerService = fixture.serviceFor(fixture.customer);
 
@@ -49,23 +53,27 @@ class ConsultantHumanChatServiceTest {
         assertEquals(2, messages.stream()
                 .filter(message -> message.senderRole() == MessageSenderRole.DESIGNER)
                 .count());
+        verify(fixture.acknowledgementService, never())
+                .acknowledgeHumanDesignerMessage(anyLong(), anyLong());
 
-        ConsultantHumanChatService designerService = fixture.serviceFor(fixture.designer);
-        ConsultantHumanChatModels.HumanMessageVO reply = designerService.sendMessage(
+        ConsultantHumanChatModels.HumanMessageVO reply = fixture.serviceFor(fixture.designer).sendMessage(
                 fixture.intake.getHumanChatId(),
                 new ConsultantHumanChatModels.SendHumanMessageRequest("收到"));
         assertEquals(2L, reply.senderId());
         assertEquals(MessageSenderRole.DESIGNER, reply.senderRole());
+        verify(fixture.acknowledgementService)
+                .acknowledgeHumanDesignerMessage(1L, 2L);
+        verify(fixture.consultationRepository, never()).saveHumanMessage(any());
     }
 
     @Test
     void unrelatedCustomerCannotAccessChat() {
         Fixture fixture = new Fixture();
         UserEntity anotherCustomer = fixture.addUser(3L, "其他客户", UserRole.CUSTOMER);
-        ConsultantHumanChatService service = fixture.serviceFor(anotherCustomer);
 
         ApiException exception = assertThrows(ApiException.class,
-                () -> service.listMessages(fixture.intake.getHumanChatId()));
+                () -> fixture.serviceFor(anotherCustomer)
+                        .listMessages(fixture.intake.getHumanChatId()));
 
         assertEquals(403, exception.getCode());
     }
@@ -74,10 +82,10 @@ class ConsultantHumanChatServiceTest {
     void disabledMatchedDesignerCannotAccessChat() {
         Fixture fixture = new Fixture();
         fixture.designer.setStatus(UserStatus.DISABLED);
-        ConsultantHumanChatService service = fixture.serviceFor(fixture.designer);
 
         ApiException exception = assertThrows(ApiException.class,
-                () -> service.listMessages(fixture.intake.getHumanChatId()));
+                () -> fixture.serviceFor(fixture.designer)
+                        .listMessages(fixture.intake.getHumanChatId()));
 
         assertEquals(403, exception.getCode());
     }
@@ -85,8 +93,11 @@ class ConsultantHumanChatServiceTest {
     private static final class Fixture {
         private final ConsultationRepository consultationRepository = mock(ConsultationRepository.class);
         private final IdentityService identityService = mock(IdentityService.class);
+        private final UnifiedConversationService unifiedConversationService = mock(UnifiedConversationService.class);
+        private final ConsultationAcknowledgementService acknowledgementService =
+                mock(ConsultationAcknowledgementService.class);
         private final Map<Long, UserEntity> users = new HashMap<>();
-        private final List<ConsultantHumanMessageEntity> messages = new ArrayList<>();
+        private final List<MessageEntity> messages = new ArrayList<>();
         private final AtomicLong messageSequence = new AtomicLong(2);
         private final UserEntity customer;
         private final UserEntity designer;
@@ -103,41 +114,35 @@ class ConsultantHumanChatServiceTest {
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();
-            messages.add(message(1L, designer, "您好，我是演示设计师。"));
-            messages.add(message(2L, designer, "您的需求已整理完成，请稍等。"));
+            messages.add(message(1L, designer, MessageSenderRole.DESIGNER, "您好，我是演示设计师。"));
+            messages.add(message(2L, designer, MessageSenderRole.DESIGNER, "您的需求已整理完成，请稍等。"));
 
             when(identityService.findById(anyLong())).thenAnswer(invocation ->
                     Optional.ofNullable(users.get(invocation.getArgument(0, Long.class)))
                             .map(this::toProfile));
-            when(consultationRepository.findIntakeByHumanChatId(any())).thenAnswer(invocation -> {
-                String humanChatId = invocation.getArgument(0, String.class);
-                return intake.getHumanChatId().equals(humanChatId)
-                        ? Optional.of(intake)
-                        : Optional.empty();
-            });
-            when(consultationRepository.listHumanMessages(any())).thenAnswer(invocation -> {
-                String humanChatId = invocation.getArgument(0, String.class);
-                return messages.stream()
-                        .filter(message -> humanChatId.equals(message.getHumanChatId()))
-                        .toList();
-            });
-            when(consultationRepository.saveHumanMessage(any())).thenAnswer(invocation -> {
-                ConsultantHumanMessageEntity message = invocation.getArgument(0);
-                message.setId(messageSequence.incrementAndGet());
-                message.setCreatedAt(LocalDateTime.now());
-                messages.add(message);
-                return message;
-            });
+            when(consultationRepository.findIntakeByHumanChatId(any())).thenAnswer(invocation ->
+                    intake.getHumanChatId().equals(invocation.getArgument(0, String.class))
+                            ? Optional.of(intake) : Optional.empty());
+            when(unifiedConversationService.listMessagesByConsultantIntakeId(1L))
+                    .thenAnswer(invocation -> List.copyOf(messages));
+            when(unifiedConversationService.appendHumanMessage(anyLong(), anyLong(), any(), any()))
+                    .thenAnswer(invocation -> {
+                        Long senderId = invocation.getArgument(1, Long.class);
+                        MessageSenderRole role = invocation.getArgument(2, MessageSenderRole.class);
+                        String content = invocation.getArgument(3, String.class).trim();
+                        MessageEntity message = message(
+                                messageSequence.incrementAndGet(), users.get(senderId), role, content);
+                        messages.add(message);
+                        return message;
+                    });
         }
 
         private ConsultantHumanChatService serviceFor(UserEntity currentUser) {
             AuthService authService = mock(AuthService.class);
             when(authService.currentUserProfile()).thenReturn(toProfile(currentUser));
             return new ConsultantHumanChatService(
-                    consultationRepository,
-                    identityService,
-                    authService
-            );
+                    consultationRepository, identityService, authService,
+                    unifiedConversationService, acknowledgementService);
         }
 
         private UserProfile toProfile(UserEntity user) {
@@ -160,17 +165,19 @@ class ConsultantHumanChatServiceTest {
             return user;
         }
 
-        private ConsultantHumanMessageEntity message(
-                Long id,
-                UserEntity sender,
-                String content) {
-            return ConsultantHumanMessageEntity.builder()
+        private MessageEntity message(
+                Long id, UserEntity sender, MessageSenderRole role, String content) {
+            return MessageEntity.builder()
                     .id(id)
-                    .humanChatId(intake.getHumanChatId())
+                    .conversationId(100L)
                     .senderId(sender.getId())
-                    .senderRole(MessageSenderRole.DESIGNER)
+                    .senderRole(role)
+                    .messageType(MessageType.TEXT)
                     .content(content)
+                    .isDeleted(false)
                     .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .fileIds(List.of())
                     .build();
         }
     }

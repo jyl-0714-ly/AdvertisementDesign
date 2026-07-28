@@ -12,7 +12,7 @@ import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.enums.StorageVisibility;
 import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
-import com.advertisementdesign.back.communication.repository.CommunicationRepository;
+import com.advertisementdesign.back.communication.service.ConversationAccessService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.project.repository.ProjectRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +55,7 @@ public class FileService {
             StorageScene.CONVERSATION_IMAGE);
 
     private final StorageRepository storageRepository;
-    private final CommunicationRepository communicationRepository;
+    private final ConversationAccessService conversationAccessService;
     private final ProjectRepository projectRepository;
     private final LocalFileStorage localFileStorage;
     private final FileConverter converter;
@@ -64,13 +64,13 @@ public class FileService {
     private StorageProperties storageProperties = new StorageProperties();
 
     public FileService(StorageRepository storageRepository,
-                       CommunicationRepository communicationRepository,
+                       ConversationAccessService conversationAccessService,
                        ProjectRepository projectRepository,
                        LocalFileStorage localFileStorage,
                        FileConverter converter,
                        AuthService authService) {
         this.storageRepository = storageRepository;
-        this.communicationRepository = communicationRepository;
+        this.conversationAccessService = conversationAccessService;
         this.projectRepository = projectRepository;
         this.localFileStorage = localFileStorage;
         this.converter = converter;
@@ -254,15 +254,20 @@ public class FileService {
             throw new ApiException(ApiErrorCode.NOT_FOUND);
         }
         UserProfile currentUser = authService.currentUserProfile();
-        if (!Objects.equals(asset.getUploaderId(), currentUser.id())
-                && !canAccessAssociatedFile(fileId, currentUser.id())) {
+        boolean associated = conversationAccessService.isAttachedToConversation(fileId)
+                || projectRepository.isFileAssociatedWithProject(fileId);
+        if (associated) {
+            if (!canAccessAssociatedFile(fileId, currentUser.id())) {
+                throw new ApiException(ApiErrorCode.FORBIDDEN);
+            }
+        } else if (!Objects.equals(asset.getUploaderId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
         return asset;
     }
 
     private boolean canAccessAssociatedFile(Long fileId, Long userId) {
-        return communicationRepository.canUserAccessAttachedFile(fileId, userId)
+        return conversationAccessService.canCurrentUserAccessAttachedFile(fileId)
                 || projectRepository.canUserAccessFile(fileId, userId);
     }
 }

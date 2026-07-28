@@ -18,7 +18,6 @@ import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
-import com.advertisementdesign.back.project.repository.ProjectRepository;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
 import com.advertisementdesign.back.communication.enums.MessageType;
 import lombok.RequiredArgsConstructor;
@@ -36,15 +35,16 @@ public class ConversationService {
     private final CommunicationRepository communicationRepository;
     private final StorageRepository storageRepository;
     private final FileService fileService;
-    private final ProjectRepository projectRepository;
     private final AuditRepository auditRepository;
     private final ConversationConverter converter;
     private final AuthService authService;
+    private final ConversationAccessService conversationAccessService;
+    private final DesignerMessageAcknowledgementPort acknowledgementPort;
 
     public List<ConversationModels.ConversationVO> list() {
         UserProfile currentUser = authService.currentUserProfile();
         return communicationRepository.listConversations().stream()
-                .filter(conversation -> Objects.equals(conversation.getCustomerId(), currentUser.id()) || Objects.equals(conversation.getDesignerId(), currentUser.id()))
+                .filter(conversation -> conversationAccessService.canAccess(conversation, currentUser))
                 .map(conversation -> converter.toConversationVO(conversation, communicationRepository.unreadCount(conversation.getId(), currentUser.id())))
                 .toList();
     }
@@ -77,8 +77,15 @@ public class ConversationService {
 
     @Transactional
     public ConversationModels.MessageVO sendMessage(Long conversationId, ConversationModels.SendMessageRequest request) {
-        ConversationEntity conversation = findAllowedConversationForUpdate(conversationId);
         UserProfile sender = authService.currentUserProfile();
+        ConversationEntity snapshot = communicationRepository.findConversationById(conversationId)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        if (sender.role() == com.advertisementdesign.back.identity.enums.UserRole.DESIGNER
+                && snapshot.getConsultantIntakeId() != null) {
+            acknowledgementPort.acknowledgeHumanDesignerMessage(
+                    snapshot.getConsultantIntakeId(), sender.id());
+        }
+        ConversationEntity conversation = findAllowedConversationForUpdate(conversationId);
         if (request.messageType() == null) {
             throw new ApiException(ApiErrorCode.BAD_REQUEST);
         }
@@ -161,9 +168,11 @@ public class ConversationService {
         conversation.setLastMessageAt(latestMessage == null ? null : latestMessage.getCreatedAt());
         communicationRepository.saveConversation(conversation);
         communicationRepository.refreshUnreadCount(message.getConversationId(), currentUser.id());
-        Long otherUserId = Objects.equals(conversation.getCustomerId(), currentUser.id())
-                ? conversation.getDesignerId()
-                : conversation.getCustomerId();
+        ConversationAccessService.AuthoritativeParticipants participants =
+                conversationAccessService.requireParticipants(conversation);
+        Long otherUserId = Objects.equals(participants.customerId(), currentUser.id())
+                ? participants.designerId()
+                : participants.customerId();
         communicationRepository.refreshUnreadCount(message.getConversationId(), otherUserId);
         return true;
     }
@@ -183,14 +192,15 @@ public class ConversationService {
     }
 
     private void validateParticipant(ConversationEntity conversation) {
-        UserProfile currentUser = authService.currentUserProfile();
-        if (!Objects.equals(conversation.getCustomerId(), currentUser.id()) && !Objects.equals(conversation.getDesignerId(), currentUser.id())) {
-            throw new ApiException(ApiErrorCode.FORBIDDEN);
-        }
+        conversationAccessService.validateCurrentUser(conversation);
     }
 
     private void updateUnreadCount(ConversationEntity conversation, Long senderId, Long messageId) {
-        Long otherUserId = Objects.equals(conversation.getCustomerId(), senderId) ? conversation.getDesignerId() : conversation.getCustomerId();
+        ConversationAccessService.AuthoritativeParticipants participants =
+                conversationAccessService.requireParticipants(conversation);
+        Long otherUserId = Objects.equals(participants.customerId(), senderId)
+                ? participants.designerId()
+                : participants.customerId();
         communicationRepository.resetReadState(
                 conversation.getId(), senderId, messageId);
         communicationRepository.incrementUnreadCount(conversation.getId(), otherUserId);

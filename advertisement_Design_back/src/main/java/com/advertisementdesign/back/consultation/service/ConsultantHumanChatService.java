@@ -3,8 +3,9 @@ package com.advertisementdesign.back.consultation.service;
 import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
+import com.advertisementdesign.back.communication.entity.MessageEntity;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
-import com.advertisementdesign.back.consultation.entity.ConsultantHumanMessageEntity;
+import com.advertisementdesign.back.communication.service.UnifiedConversationService;
 import com.advertisementdesign.back.consultation.entity.ConsultantIntakeEntity;
 import com.advertisementdesign.back.consultation.model.ConsultantHumanChatModels;
 import com.advertisementdesign.back.consultation.repository.ConsultationRepository;
@@ -24,12 +25,14 @@ public class ConsultantHumanChatService {
     private final ConsultationRepository consultationRepository;
     private final IdentityService identityService;
     private final AuthService authService;
+    private final UnifiedConversationService unifiedConversationService;
+    private final ConsultationAcknowledgementService acknowledgementService;
 
     public List<ConsultantHumanChatModels.HumanMessageVO> listMessages(String humanChatId) {
         UserProfile currentUser = authService.currentUserProfile();
         ConsultantIntakeEntity intake = accessibleIntake(humanChatId, currentUser);
-        return consultationRepository.listHumanMessages(intake.getHumanChatId()).stream()
-                .map(this::toVO)
+        return unifiedConversationService.listMessagesByConsultantIntakeId(intake.getId()).stream()
+                .map(message -> toVO(intake.getHumanChatId(), message))
                 .toList();
     }
 
@@ -39,14 +42,16 @@ public class ConsultantHumanChatService {
             ConsultantHumanChatModels.SendHumanMessageRequest request) {
         UserProfile currentUser = authService.currentUserProfile();
         ConsultantIntakeEntity intake = accessibleIntake(humanChatId, currentUser);
-        ConsultantHumanMessageEntity message = consultationRepository.saveHumanMessage(
-                ConsultantHumanMessageEntity.builder()
-                        .humanChatId(intake.getHumanChatId())
-                        .senderId(currentUser.id())
-                        .senderRole(toSenderRole(currentUser.role()))
-                        .content(request.content().trim())
-                        .build());
-        return toVO(message);
+        if (currentUser.role() == UserRole.DESIGNER) {
+            acknowledgementService.acknowledgeHumanDesignerMessage(
+                    intake.getId(), currentUser.id());
+        }
+        MessageEntity message = unifiedConversationService.appendHumanMessage(
+                intake.getId(),
+                currentUser.id(),
+                toSenderRole(currentUser.role()),
+                request.content());
+        return toVO(intake.getHumanChatId(), message);
     }
 
     private ConsultantIntakeEntity accessibleIntake(String humanChatId, UserProfile user) {
@@ -75,12 +80,14 @@ public class ConsultantHumanChatService {
         throw new ApiException(ApiErrorCode.FORBIDDEN);
     }
 
-    private ConsultantHumanChatModels.HumanMessageVO toVO(ConsultantHumanMessageEntity message) {
+    private ConsultantHumanChatModels.HumanMessageVO toVO(
+            String humanChatId,
+            MessageEntity message) {
         UserProfile sender = identityService.findById(message.getSenderId()).orElse(null);
         String senderName = sender == null ? "未知用户" : sender.nickname();
         return new ConsultantHumanChatModels.HumanMessageVO(
                 message.getId(),
-                message.getHumanChatId(),
+                humanChatId,
                 message.getSenderId(),
                 message.getSenderRole(),
                 senderName,

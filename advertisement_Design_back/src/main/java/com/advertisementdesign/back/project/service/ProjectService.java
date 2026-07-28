@@ -7,10 +7,8 @@ import com.advertisementdesign.back.common.audit.repository.AuditRepository;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.communication.entity.ConversationEntity;
-import com.advertisementdesign.back.communication.enums.ConversationStatus;
-import com.advertisementdesign.back.communication.enums.ConversationType;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
+import com.advertisementdesign.back.communication.service.UnifiedConversationService;
 import com.advertisementdesign.back.consultation.model.ProjectPreparationModels;
 import com.advertisementdesign.back.consultation.service.ProjectPreparationService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
@@ -20,7 +18,6 @@ import com.advertisementdesign.back.project.entity.ProjectStageEntity;
 import com.advertisementdesign.back.project.enums.ProjectStageStatus;
 import com.advertisementdesign.back.project.enums.ProjectStatus;
 import com.advertisementdesign.back.project.model.ProjectModels;
-import com.advertisementdesign.back.communication.repository.CommunicationRepository;
 import com.advertisementdesign.back.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,7 +33,7 @@ import java.util.Objects;
 public class ProjectService {
     private final ProjectRepository projectRepository;
     private final AuditRepository auditRepository;
-    private final CommunicationRepository communicationRepository;
+    private final UnifiedConversationService unifiedConversationService;
     private final ProjectConverter converter;
     private final AuthService authService;
     private final ProjectPreparationService projectPreparationService;
@@ -177,20 +174,11 @@ public class ProjectService {
     }
 
     private void ensureConversation(ProjectEntity project) {
-        communicationRepository.findConversationByProjectId(project.getId()).orElseGet(() ->
-                communicationRepository.saveConversation(ConversationEntity.builder()
-                        .consultantIntakeId(project.getConsultantIntakeId())
-                        .projectId(project.getId())
-                        .customerId(project.getCustomerId())
-                        .designerId(project.getDesignerId())
-                        .conversationType(ConversationType.PROJECT)
-                        .status(ConversationStatus.ACTIVE)
-                        .lastMessage(null)
-                        .lastMessageAt(null)
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
-                        .build())
-        );
+        unifiedConversationService.bindProject(
+                project.getConsultantIntakeId(),
+                project.getId(),
+                project.getCustomerId(),
+                project.getDesignerId());
     }
 
     private void createDefaultStages(Long projectId) {

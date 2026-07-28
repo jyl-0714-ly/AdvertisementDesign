@@ -169,6 +169,13 @@ public class MybatisPlusProjectRepository implements ProjectRepository {
     }
 
     @Override
+    public boolean isFileAssociatedWithProject(Long fileId) {
+        return projectFileMapper.selectCount(
+                new LambdaQueryWrapper<ProjectFileEntity>()
+                        .eq(ProjectFileEntity::getFileId, fileId)) > 0;
+    }
+
+    @Override
     public boolean canUserAccessFile(Long fileId, Long userId) {
         return projectFileMapper.countAccessibleByUser(fileId, userId) > 0;
     }

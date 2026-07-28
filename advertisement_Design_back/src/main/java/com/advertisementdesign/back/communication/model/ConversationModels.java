@@ -1,5 +1,7 @@
 package com.advertisementdesign.back.communication.model;
 
+import com.advertisementdesign.back.communication.enums.ConversationStatus;
+import com.advertisementdesign.back.communication.enums.ConversationType;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
 import com.advertisementdesign.back.communication.enums.MessageType;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -15,8 +17,11 @@ public final class ConversationModels {
     @Schema(description = "会话视图")
     public record ConversationVO(
             Long id,
+            Long consultantIntakeId,
             Long projectId,
             String projectName,
+            ConversationType conversationType,
+            ConversationStatus status,
             Long customerId,
             String customerName,
             Long designerId,

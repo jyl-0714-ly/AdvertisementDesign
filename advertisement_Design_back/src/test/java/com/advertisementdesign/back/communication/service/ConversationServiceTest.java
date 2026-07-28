@@ -17,7 +17,6 @@ import com.advertisementdesign.back.communication.repository.CommunicationReposi
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.identity.enums.UserRole;
-import com.advertisementdesign.back.project.repository.ProjectRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,13 +48,15 @@ class ConversationServiceTest {
     @Mock
     private FileService fileService;
     @Mock
-    private ProjectRepository projectRepository;
-    @Mock
     private AuditRepository auditRepository;
     @Mock
     private ConversationConverter converter;
     @Mock
     private AuthService authService;
+    @Mock
+    private ConversationAccessService conversationAccessService;
+    @Mock
+    private DesignerMessageAcknowledgementPort acknowledgementPort;
 
     private ConversationService conversationService;
 
@@ -61,7 +64,10 @@ class ConversationServiceTest {
     void setUp() {
         conversationService = new ConversationService(
                 communicationRepository, storageRepository, fileService,
-                projectRepository, auditRepository, converter, authService);
+                auditRepository, converter, authService, conversationAccessService,
+                acknowledgementPort);
+        lenient().when(conversationAccessService.requireParticipants(any()))
+                .thenReturn(new ConversationAccessService.AuthoritativeParticipants(1L, 2L));
     }
 
     @Test
@@ -72,8 +78,6 @@ class ConversationServiceTest {
                 "file", "brief.pdf", "application/pdf", new byte[]{2});
         when(communicationRepository.findConversationById(1L))
                 .thenReturn(Optional.of(conversation()));
-        when(authService.currentUserProfile())
-                .thenReturn(user(1L, UserRole.CUSTOMER));
 
         conversationService.uploadAttachment(1L, true, image);
         conversationService.uploadAttachment(1L, false, attachment);
@@ -88,8 +92,8 @@ class ConversationServiceTest {
                 "file", "brief.pdf", "application/pdf", new byte[]{1});
         when(communicationRepository.findConversationById(1L))
                 .thenReturn(Optional.of(conversation()));
-        when(authService.currentUserProfile())
-                .thenReturn(user(99L, UserRole.CUSTOMER));
+        doThrow(new ApiException(403, "无权限"))
+                .when(conversationAccessService).validateCurrentUser(any());
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> conversationService.uploadAttachment(1L, false, file));
@@ -124,7 +128,8 @@ class ConversationServiceTest {
     @Test
     void nonMemberCannotListConversationMessages() {
         when(communicationRepository.findConversationById(1L)).thenReturn(Optional.of(conversation()));
-        when(authService.currentUserProfile()).thenReturn(user(99L, UserRole.CUSTOMER));
+        doThrow(new ApiException(403, "无权限"))
+                .when(conversationAccessService).validateCurrentUser(any());
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> conversationService.messages(1L, null, 20));
@@ -135,6 +140,8 @@ class ConversationServiceTest {
 
     @Test
     void memberCannotAttachFileUploadedByAnotherUser() {
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(conversation()));
         when(communicationRepository.findConversationByIdForUpdate(1L)).thenReturn(Optional.of(conversation()));
         when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
         when(storageRepository.findById(8L)).thenReturn(Optional.of(FileAssetEntity.builder()
@@ -158,7 +165,6 @@ class ConversationServiceTest {
                 .id(12L)
                 .conversationId(2L)
                 .build()));
-        when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> conversationService.markRead(1L, new ConversationModels.MarkReadRequest(12L)));
@@ -179,13 +185,96 @@ class ConversationServiceTest {
                 .customerId(3L)
                 .designerId(4L)
                 .build()));
-        when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
+        doThrow(new ApiException(403, "无权限"))
+                .when(conversationAccessService).validateCurrentUser(any());
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> conversationService.deleteMessage(12L));
 
         assertEquals(403, exception.getCode());
         verify(communicationRepository, never()).saveMessage(any());
+    }
+
+    @Test
+    void reassignedDesignerMessageNotifiesCurrentCustomerInsteadOfStaleParticipant() {
+        ConversationEntity staleConversation = ConversationEntity.builder()
+                .id(1L)
+                .consultantIntakeId(7L)
+                .customerId(1L)
+                .designerId(2L)
+                .build();
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(staleConversation));
+        when(communicationRepository.findConversationByIdForUpdate(1L))
+                .thenReturn(Optional.of(staleConversation));
+        when(authService.currentUserProfile()).thenReturn(user(3L, UserRole.DESIGNER));
+        when(communicationRepository.saveMessage(any())).thenAnswer(invocation -> {
+            MessageEntity message = invocation.getArgument(0);
+            message.setId(12L);
+            return message;
+        });
+        when(conversationAccessService.requireParticipants(staleConversation))
+                .thenReturn(new ConversationAccessService.AuthoritativeParticipants(1L, 3L));
+
+        conversationService.sendMessage(1L,
+                new ConversationModels.SendMessageRequest(
+                        MessageType.TEXT, "当前设计师回复", List.of(), "client-current"));
+
+        verify(communicationRepository).incrementUnreadCount(1L, 1L);
+        verify(communicationRepository, never()).incrementUnreadCount(1L, 2L);
+        verify(acknowledgementPort).acknowledgeHumanDesignerMessage(7L, 3L);
+    }
+
+    @Test
+    void expiredDesignerMessageIsRejectedBeforeConversationLockAndPersistence() {
+        ConversationEntity consultation = ConversationEntity.builder()
+                .id(1L)
+                .consultantIntakeId(7L)
+                .customerId(1L)
+                .designerId(2L)
+                .build();
+        when(authService.currentUserProfile()).thenReturn(user(2L, UserRole.DESIGNER));
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(consultation));
+        doThrow(new ApiException(403, "分配已过期"))
+                .when(acknowledgementPort)
+                .acknowledgeHumanDesignerMessage(7L, 2L);
+
+        assertEquals(403, assertThrows(ApiException.class,
+                () -> conversationService.sendMessage(1L,
+                        new ConversationModels.SendMessageRequest(
+                                MessageType.TEXT, "迟到回复", List.of(), "late")))
+                .getCode());
+
+        verify(communicationRepository, never()).findConversationByIdForUpdate(any());
+        verify(communicationRepository, never()).saveMessage(any());
+    }
+
+    @Test
+    void customerMessageDoesNotAcknowledgeConsultationAssignment() {
+        ConversationEntity consultation = ConversationEntity.builder()
+                .id(1L)
+                .consultantIntakeId(7L)
+                .customerId(1L)
+                .designerId(2L)
+                .build();
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(consultation));
+        when(communicationRepository.findConversationByIdForUpdate(1L))
+                .thenReturn(Optional.of(consultation));
+        when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
+        when(communicationRepository.saveMessage(any())).thenAnswer(invocation -> {
+            MessageEntity message = invocation.getArgument(0);
+            message.setId(12L);
+            return message;
+        });
+
+        conversationService.sendMessage(1L,
+                new ConversationModels.SendMessageRequest(
+                        MessageType.TEXT, "客户补充说明", List.of(), "client-customer"));
+
+        verify(acknowledgementPort, never())
+                .acknowledgeHumanDesignerMessage(any(), any());
     }
 
     @Test

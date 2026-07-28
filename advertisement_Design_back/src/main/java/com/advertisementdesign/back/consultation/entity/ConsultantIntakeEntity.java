@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,6 +36,7 @@ public class ConsultantIntakeEntity {
     private LocalDateTime designerAcknowledgedAt;
     private Integer matchAttemptCount;
     private LocalDateTime handoffConfirmedAt;
+    private LocalDateTime nextMatchAt;
     private LocalDateTime closedAt;
     private String closeReason;
     private LocalDateTime contractConfirmedAt;
@@ -42,6 +44,8 @@ public class ConsultantIntakeEntity {
     private String humanChatId;
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> greetingMessages;
+    @Version
+    private Integer version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

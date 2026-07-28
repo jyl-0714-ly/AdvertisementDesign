@@ -58,7 +58,14 @@ public class ConsultantIntakeController {
         return Result.success(consultantIntakeService.getDesignerReception(intakeId));
     }
 
-    @Operation(summary = "接待已匹配给当前设计师的客户")
+    @Operation(summary = "确认收到已匹配的客户咨询")
+    @PostMapping("/designer-receptions/{intakeId}/acknowledge")
+    public Result<ConsultantIntakeModels.DesignerReceptionVO> acknowledgeDesignerReception(
+            @PathVariable Long intakeId) {
+        return Result.success(consultantIntakeService.accept(intakeId));
+    }
+
+    @Operation(summary = "接待已匹配给当前设计师的客户（兼容旧版客户端）")
     @PostMapping("/designer-receptions/{intakeId}/accept")
     public Result<ConsultantIntakeModels.DesignerReceptionVO> acceptDesignerReception(
             @PathVariable Long intakeId) {

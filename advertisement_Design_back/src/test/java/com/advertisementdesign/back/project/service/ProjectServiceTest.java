@@ -3,7 +3,7 @@ package com.advertisementdesign.back.project.service;
 import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.audit.repository.AuditRepository;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.communication.repository.CommunicationRepository;
+import com.advertisementdesign.back.communication.service.UnifiedConversationService;
 import com.advertisementdesign.back.consultation.model.ProjectPreparationModels;
 import com.advertisementdesign.back.consultation.service.ProjectPreparationService;
 import com.advertisementdesign.back.identity.enums.UserRole;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 class ProjectServiceTest {
     @Mock private ProjectRepository projectRepository;
     @Mock private AuditRepository auditRepository;
-    @Mock private CommunicationRepository communicationRepository;
+    @Mock private UnifiedConversationService unifiedConversationService;
     @Mock private ProjectConverter converter;
     @Mock private AuthService authService;
     @Mock private ProjectPreparationService projectPreparationService;
@@ -44,7 +44,7 @@ class ProjectServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProjectService(projectRepository, auditRepository, communicationRepository,
+        service = new ProjectService(projectRepository, auditRepository, unifiedConversationService,
                 converter, authService, projectPreparationService);
     }
 
@@ -97,6 +97,7 @@ class ProjectServiceTest {
         assertEquals(11L, captor.getValue().getCustomerId());
         assertEquals(22L, captor.getValue().getDesignerId());
         assertEquals(7L, captor.getValue().getConsultantIntakeId());
+        verify(unifiedConversationService).bindProject(7L, 99L, 11L, 22L);
         assertEquals(99L, result.id());
     }
 

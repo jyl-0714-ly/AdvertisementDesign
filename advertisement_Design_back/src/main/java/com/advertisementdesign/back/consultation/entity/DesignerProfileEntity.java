@@ -23,6 +23,7 @@ public class DesignerProfileEntity {
     @TableId
     private Long designerId;
     private Boolean enabled;
+    private Boolean autoMatchEnabled;
     private Boolean online;
     private DesignerAvailabilityStatus availabilityStatus;
     private LocalDateTime lastActiveAt;

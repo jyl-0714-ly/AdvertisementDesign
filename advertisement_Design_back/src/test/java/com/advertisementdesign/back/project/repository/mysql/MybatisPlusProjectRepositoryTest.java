@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.AbstractWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -70,8 +71,11 @@ class MybatisPlusProjectRepositoryTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Wrapper<ProjectStageEntity>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(projectStageMapper).selectCount(captor.capture());
-        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(1L));
-        assertTrue(captor.getValue().getParamNameValuePairs().containsValue(ProjectStageStatus.REACHED));
+        AbstractWrapper<ProjectStageEntity, ?, ?> wrapper =
+                (AbstractWrapper<ProjectStageEntity, ?, ?>) captor.getValue();
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(1L));
+        assertTrue(wrapper.getParamNameValuePairs()
+                .containsValue(ProjectStageStatus.REACHED));
     }
 
     @Test

@@ -3,8 +3,8 @@ package com.advertisementdesign.back.consultation.service;
 import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.communication.enums.MessageSenderRole;
-import com.advertisementdesign.back.consultation.entity.ConsultantHumanMessageEntity;
+import com.advertisementdesign.back.communication.service.UnifiedConversationService;
+import com.advertisementdesign.back.consultation.config.ConsultationMatchingProperties;
 import com.advertisementdesign.back.consultation.entity.ConsultantIntakeEntity;
 import com.advertisementdesign.back.consultation.entity.DesignerProfileEntity;
 import com.advertisementdesign.back.consultation.enums.ConsultantIntakeStatus;
@@ -19,23 +19,27 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ConsultantIntakeService {
-    private static final String DESIGNER_HANDOFF_GREETING = "您的需求已整理完成，请稍等。";
 
     private final ConsultationRepository consultationRepository;
     private final IdentityService identityService;
     private final ProjectRepository projectRepository;
     private final AuthService authService;
+    private final UnifiedConversationService unifiedConversationService;
+    private final ConsultationAcknowledgementService acknowledgementService;
+    private final ConsultationMatchingProperties matchingProperties;
+    private final Clock clock;
 
     /**
-     * Legacy compatibility endpoint: a complete submission still matches immediately.
+     * Legacy compatibility endpoint: a complete submission enters the same
+     * three-second automatic matching queue as an explicit handoff.
      */
     @Transactional
     public ConsultantIntakeModels.ConsultantIntakeVO submit(
@@ -48,10 +52,11 @@ public class ConsultantIntakeService {
                 .requirementDescription(clean(request.requirementDescription()))
                 .budgetRange(clean(request.budgetRange()))
                 .projectCycle(clean(request.projectCycle()))
-                .status(ConsultantIntakeStatus.READY_FOR_HANDOFF)
+                .status(ConsultantIntakeStatus.AGENT_COLLECTING)
+                .version(0)
                 .build();
         consultationRepository.saveIntake(intake);
-        return performHandoff(intake);
+        return queueHandoff(intake);
     }
 
     @Transactional
@@ -60,6 +65,7 @@ public class ConsultantIntakeService {
         UserProfile customer = currentCustomer();
         ConsultantIntakeEntity intake = ConsultantIntakeEntity.builder()
                 .customerId(customer.id())
+                .version(0)
                 .build();
         applyDraft(intake, request);
         return toCustomerVO(consultationRepository.saveIntake(intake));
@@ -88,15 +94,32 @@ public class ConsultantIntakeService {
     @Transactional
     public ConsultantIntakeModels.ConsultantIntakeVO handoff(Long intakeId) {
         ConsultantIntakeEntity intake = accessibleCustomerIntakeForUpdate(intakeId, currentCustomer());
-        if (intake.getStatus() == ConsultantIntakeStatus.MATCHED
+        if (intake.getStatus() == ConsultantIntakeStatus.READY_FOR_HANDOFF
+                || intake.getStatus() == ConsultantIntakeStatus.MATCHED
                 || intake.getStatus() == ConsultantIntakeStatus.ACCEPTED) {
             return toCustomerVO(intake);
         }
         if (!isComplete(intake)) {
             throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "需求信息未填写完整，无法转接人工设计师");
         }
+        LocalDateTime confirmedAt = LocalDateTime.now(clock);
+        LocalDateTime nextMatchAt = confirmedAt.plus(matchingProperties.matchingDelay());
+        if (!consultationRepository.confirmHandoff(
+                intake.getId(), confirmedAt, nextMatchAt)) {
+            ConsultantIntakeEntity current = consultationRepository
+                    .findIntakeById(intake.getId())
+                    .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+            if (current.getStatus() == ConsultantIntakeStatus.READY_FOR_HANDOFF
+                    || current.getStatus() == ConsultantIntakeStatus.MATCHED
+                    || current.getStatus() == ConsultantIntakeStatus.ACCEPTED) {
+                return toCustomerVO(current);
+            }
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "咨询状态已变化，请刷新后重试");
+        }
         intake.setStatus(ConsultantIntakeStatus.READY_FOR_HANDOFF);
-        return performHandoff(intake);
+        intake.setHandoffConfirmedAt(confirmedAt);
+        intake.setNextMatchAt(nextMatchAt);
+        return toCustomerVO(intake);
     }
 
     public List<ConsultantIntakeModels.DesignerReceptionVO> listDesignerReceptions() {
@@ -117,37 +140,26 @@ public class ConsultantIntakeService {
     public ConsultantIntakeModels.DesignerReceptionVO accept(Long intakeId) {
         UserProfile designer = authService.currentUserProfile();
         ensureDesigner(designer);
-        ConsultantIntakeEntity intake = accessibleDesignerIntake(intakeId, designer);
-        if (intake.getStatus() == ConsultantIntakeStatus.MATCHED) {
-            intake.setStatus(ConsultantIntakeStatus.ACCEPTED);
-            consultationRepository.saveIntake(intake);
-        }
-        return toDesignerReceptionVO(intake);
+        ConsultantIntakeEntity intake = accessibleDesignerIntakeForUpdate(intakeId, designer);
+        acknowledgementService.acknowledge(intakeId, designer.id());
+        return toDesignerReceptionVO(
+                consultationRepository.findIntakeById(intakeId).orElse(intake));
     }
 
-    private ConsultantIntakeModels.ConsultantIntakeVO performHandoff(ConsultantIntakeEntity intake) {
-        DesignerProfileEntity designerProfile = matchDesigner(intake);
-        UserProfile designer = findUser(designerProfile.getDesignerId());
-        if (designer.role() != UserRole.DESIGNER) {
-            throw new ApiException(ApiErrorCode.NOT_FOUND);
+    private ConsultantIntakeModels.ConsultantIntakeVO queueHandoff(
+            ConsultantIntakeEntity intake) {
+        LocalDateTime confirmedAt = intake.getHandoffConfirmedAt();
+        if (confirmedAt == null) {
+            confirmedAt = LocalDateTime.now(clock);
+            intake.setHandoffConfirmedAt(confirmedAt);
         }
-        List<String> greetings = List.of(
-                "您好，我是" + designer.nickname() + "，接下来由我与您确认需求细节并推进设计方案。",
-                DESIGNER_HANDOFF_GREETING
-        );
-        intake.setStatus(ConsultantIntakeStatus.MATCHED);
-        intake.setMatchedDesignerId(designer.id());
-        intake.setHumanChatId("consultant-" + UUID.randomUUID());
-        intake.setGreetingMessages(greetings);
+        if (intake.getNextMatchAt() == null) {
+            intake.setNextMatchAt(
+                    confirmedAt.plus(matchingProperties.matchingDelay()));
+        }
+        intake.setStatus(ConsultantIntakeStatus.READY_FOR_HANDOFF);
         consultationRepository.saveIntake(intake);
-        greetings.forEach(content -> consultationRepository.saveHumanMessage(
-                ConsultantHumanMessageEntity.builder()
-                        .humanChatId(intake.getHumanChatId())
-                        .senderId(designer.id())
-                        .senderRole(MessageSenderRole.DESIGNER)
-                        .content(content)
-                        .build()));
-        return toCustomerVO(intake, designerProfile, designer);
+        return toCustomerVO(intake);
     }
 
     private void applyDraft(
@@ -158,9 +170,7 @@ public class ConsultantIntakeService {
         intake.setRequirementDescription(clean(request.requirementDescription()));
         intake.setBudgetRange(clean(request.budgetRange()));
         intake.setProjectCycle(clean(request.projectCycle()));
-        intake.setStatus(isComplete(intake)
-                ? ConsultantIntakeStatus.READY_FOR_HANDOFF
-                : ConsultantIntakeStatus.AGENT_COLLECTING);
+        intake.setStatus(ConsultantIntakeStatus.AGENT_COLLECTING);
     }
 
     private ConsultantIntakeEntity accessibleCustomerIntake(Long intakeId, UserProfile customer) {
@@ -183,6 +193,17 @@ public class ConsultantIntakeService {
 
     private ConsultantIntakeEntity accessibleDesignerIntake(Long intakeId, UserProfile designer) {
         ConsultantIntakeEntity intake = consultationRepository.findIntakeById(intakeId)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        if (!designer.id().equals(intake.getMatchedDesignerId())) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN);
+        }
+        return intake;
+    }
+
+    private ConsultantIntakeEntity accessibleDesignerIntakeForUpdate(
+            Long intakeId,
+            UserProfile designer) {
+        ConsultantIntakeEntity intake = consultationRepository.findIntakeByIdForUpdate(intakeId)
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
         if (!designer.id().equals(intake.getMatchedDesignerId())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
@@ -213,6 +234,8 @@ public class ConsultantIntakeService {
                         profile == null || profile.getSpecialties() == null
                                 ? List.of()
                                 : List.copyOf(profile.getSpecialties()));
+        Long conversationId = unifiedConversationService
+                .findConversationIdByConsultantIntakeId(intake.getId());
         return new ConsultantIntakeModels.ConsultantIntakeVO(
                 intake.getId(),
                 intake.getStatus(),
@@ -223,6 +246,7 @@ public class ConsultantIntakeService {
                 intake.getProjectCycle(),
                 matchedDesigner,
                 intake.getHumanChatId(),
+                conversationId,
                 intake.getGreetingMessages() == null ? List.of() : List.copyOf(intake.getGreetingMessages()),
                 intake.getCreatedAt().toString());
     }
@@ -259,32 +283,9 @@ public class ConsultantIntakeService {
                 intake.getHumanChatId(), intake.getCreatedAt().toString());
     }
 
-    private DesignerProfileEntity matchDesigner(ConsultantIntakeEntity intake) {
-        return consultationRepository.listEnabledDesignerProfiles().stream()
-                .filter(profile -> {
-                    UserProfile user = identityService.findById(profile.getDesignerId()).orElse(null);
-                    return user != null && user.role() == UserRole.DESIGNER
-                            && user.status() == UserStatus.ENABLED;
-                })
-                .min(Comparator
-                        .comparing((DesignerProfileEntity profile) -> !Boolean.TRUE.equals(profile.getOnline()))
-                        .thenComparingLong(profile -> activeWorkload(profile.getDesignerId()))
-                        .thenComparing(profile -> !hasSpecialtyMatch(profile, intake))
-                        .thenComparing(DesignerProfileEntity::getDesignerId))
-                .orElseThrow(() -> new ApiException(1001, "当前暂无可匹配的设计师"));
-    }
-
     private long activeWorkload(Long designerId) {
         return projectRepository.countInProgressProjectsByDesigner(designerId)
                 + consultationRepository.countActiveIntakesByDesigner(designerId);
-    }
-
-    private boolean hasSpecialtyMatch(DesignerProfileEntity profile, ConsultantIntakeEntity intake) {
-        String projectType = normalize(intake.getProjectType());
-        String industry = normalize(intake.getIndustry());
-        return profile.getSpecialties() != null && profile.getSpecialties().stream()
-                .map(this::normalize)
-                .anyMatch(specialty -> specialty.equals(projectType) || specialty.equals(industry));
     }
 
     private boolean isComplete(ConsultantIntakeEntity intake) {
