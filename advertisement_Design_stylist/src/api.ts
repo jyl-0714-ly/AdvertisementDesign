@@ -4,7 +4,7 @@ import type {
   ConversationReadStateVO,
   ConversationVO,
   CreateProjectFileRequest,
-  CreateProjectRequest,
+  CreateProjectFromConsultationRequest,
   FileAssetVO,
   LoginResponse,
   MarkReadRequest,
@@ -15,6 +15,7 @@ import type {
   PortfolioCaseRequest,
   PortfolioCaseVO,
   ProjectFileVO,
+  ProjectPreparationVO,
   ProjectStageVO,
   ProjectVO,
   Result,
@@ -103,7 +104,7 @@ export function listProjects(params: { status?: string; currentStage?: string; k
   return request<PageResult<ProjectVO>>(`/projects${buildQuery(params)}`)
 }
 export function getProject(id: number) { return request<ProjectVO>(`/projects/${id}`) }
-export function createProject(payload: CreateProjectRequest) { return request<ProjectVO>('/projects', { method: 'POST', body: JSON.stringify(payload) }) }
+export function createProjectFromConsultation(payload: CreateProjectFromConsultationRequest) { return request<ProjectVO>('/projects/from-consultation', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateProject(id: number, payload: UpdateProjectRequest) { return request<ProjectVO>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }) }
 export function deleteProject(id: number) { return request<boolean>(`/projects/${id}`, { method: 'DELETE' }) }
 export function listProjectStages(projectId: number) { return request<ProjectStageVO[]>(`/projects/${projectId}/stages`) }
@@ -129,6 +130,15 @@ export function getConsultantReception(intakeId: number) {
 export function acceptConsultantReception(intakeId: number) {
   return request<ConsultantReceptionVO>(`/consultant-intakes/designer-receptions/${intakeId}/accept`, { method: 'POST' })
 }
+export function getProjectPreparation(intakeId: number) {
+  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation`)
+}
+export function confirmConsultationContract(intakeId: number) {
+  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation/contract-confirmation`, { method: 'POST' })
+}
+export function confirmConsultationInitialPayment(intakeId: number) {
+  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation/initial-payment-confirmation`, { method: 'POST' })
+}
 export function listConsultantHumanMessages(humanChatId: string) {
   return request<ConsultantHumanMessageVO[]>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`)
 }
@@ -150,10 +160,22 @@ export function markConversationRead(conversationId: number, payload: MarkReadRe
   return request<ConversationReadStateVO>(`/conversations/${conversationId}/read`, { method: 'POST', body: JSON.stringify(payload) })
 }
 
-export function uploadFile(file: File) {
+export function uploadConversationFile(conversationId: number, file: File) {
   const form = new FormData()
   form.append('file', file)
-  return request<FileAssetVO>('/files', { method: 'POST', body: form })
+  const image = file.type.startsWith('image/')
+  return request<FileAssetVO>(`/conversations/${conversationId}/file-assets?image=${image}`, {
+    method: 'POST',
+    body: form
+  })
+}
+export function uploadProjectFile(projectId: number, fileRole: string, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return request<FileAssetVO>(`/projects/${projectId}/file-assets?fileRole=${encodeURIComponent(fileRole)}`, {
+    method: 'POST',
+    body: form
+  })
 }
 export function downloadFile(fileId: number) { return requestBlob(`/files/${fileId}/download`) }
 export function getFile(fileId: number) { return request<FileAssetVO>(`/files/${fileId}`) }

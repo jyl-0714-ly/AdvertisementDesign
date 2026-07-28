@@ -49,6 +49,70 @@ class ConsultantIntakeServiceTest {
     }
 
     @Test
+    void draftDoesNotMatchUntilExplicitHandoff() {
+        Fixture fixture = new Fixture();
+        ConsultantIntakeService service = fixture.serviceFor(fixture.customer);
+
+        ConsultantIntakeModels.ConsultantIntakeVO draft = service.createDraft(draftRequest(
+                "品牌设计", "餐饮", "需要完成品牌视觉升级", "1-2 万元", "4 周"));
+
+        assertEquals(ConsultantIntakeStatus.READY_FOR_HANDOFF, draft.status());
+        assertEquals(null, draft.matchedDesigner());
+        assertEquals(null, draft.humanChatId());
+        assertEquals(0, fixture.messages.size());
+
+        ConsultantIntakeModels.ConsultantIntakeVO handedOff = service.handoff(draft.intakeId());
+        assertEquals(ConsultantIntakeStatus.MATCHED, handedOff.status());
+        assertNotNull(handedOff.matchedDesigner());
+        assertNotNull(handedOff.humanChatId());
+        assertEquals(2, fixture.messages.size());
+    }
+
+    @Test
+    void incompleteDraftCannotBeHandedOff() {
+        Fixture fixture = new Fixture();
+        ConsultantIntakeService service = fixture.serviceFor(fixture.customer);
+        ConsultantIntakeModels.ConsultantIntakeVO draft = service.createDraft(draftRequest(
+                "品牌设计", "", null, null, null));
+
+        ApiException exception = assertThrows(ApiException.class, () -> service.handoff(draft.intakeId()));
+
+        assertEquals(400, exception.getCode());
+        assertEquals(ConsultantIntakeStatus.AGENT_COLLECTING, draft.status());
+        assertEquals(0, fixture.messages.size());
+    }
+
+    @Test
+    void customerCannotReadUpdateOrHandoffAnotherCustomersIntake() {
+        Fixture fixture = new Fixture();
+        ConsultantIntakeModels.ConsultantIntakeVO draft = fixture.serviceFor(fixture.customer)
+                .createDraft(draftRequest("品牌设计", "餐饮", "视觉升级", "1-2 万元", "4 周"));
+        UserEntity anotherCustomer = fixture.addUser(8L, "其他客户", UserRole.CUSTOMER);
+        ConsultantIntakeService anotherService = fixture.serviceFor(anotherCustomer);
+
+        assertEquals(403, assertThrows(ApiException.class,
+                () -> anotherService.updateDraft(draft.intakeId(),
+                        draftRequest("包装设计", "零售", "包装升级", "2 万元", "3 周"))).getCode());
+        assertEquals(403, assertThrows(ApiException.class,
+                () -> anotherService.handoff(draft.intakeId())).getCode());
+    }
+
+    @Test
+    void repeatedHandoffReturnsExistingChatWithoutDuplicateMessages() {
+        Fixture fixture = new Fixture();
+        ConsultantIntakeService service = fixture.serviceFor(fixture.customer);
+        ConsultantIntakeModels.ConsultantIntakeVO draft = service.createDraft(draftRequest(
+                "品牌设计", "餐饮", "视觉升级", "1-2 万元", "4 周"));
+
+        ConsultantIntakeModels.ConsultantIntakeVO first = service.handoff(draft.intakeId());
+        ConsultantIntakeModels.ConsultantIntakeVO second = service.handoff(draft.intakeId());
+
+        assertEquals(first.humanChatId(), second.humanChatId());
+        assertEquals(first.matchedDesigner().id(), second.matchedDesigner().id());
+        assertEquals(2, fixture.messages.size());
+    }
+
+    @Test
     void matchingUsesOnlineThenWorkloadThenSpecialtyThenIdPriority() {
         Fixture fixture = new Fixture();
         fixture.addDesigner(3L, "离线低负载", false, List.of("品牌设计"));
@@ -123,6 +187,16 @@ class ConsultantIntakeServiceTest {
                 disabledService::listDesignerReceptions).getCode());
     }
 
+    private ConsultantIntakeModels.SaveConsultantIntakeDraftRequest draftRequest(
+            String projectType,
+            String industry,
+            String description,
+            String budget,
+            String cycle) {
+        return new ConsultantIntakeModels.SaveConsultantIntakeDraftRequest(
+                projectType, industry, description, budget, cycle);
+    }
+
     private ConsultantIntakeModels.SubmitConsultantIntakeRequest request(
             String projectType,
             String industry) {
@@ -178,6 +252,22 @@ class ConsultantIntakeServiceTest {
             });
             when(consultationRepository.findIntakeById(any())).thenAnswer(invocation ->
                     Optional.ofNullable(intakes.get(invocation.getArgument(0, Long.class))));
+            when(consultationRepository.findIntakeByIdForUpdate(any())).thenAnswer(invocation ->
+                    Optional.ofNullable(intakes.get(invocation.getArgument(0, Long.class))));
+            when(consultationRepository.findCurrentIntakeByCustomer(any())).thenAnswer(invocation -> {
+                Long customerId = invocation.getArgument(0, Long.class);
+                return intakes.values().stream()
+                        .filter(intake -> customerId.equals(intake.getCustomerId()))
+                        .max(java.util.Comparator.comparing(ConsultantIntakeEntity::getUpdatedAt));
+            });
+            when(consultationRepository.countActiveIntakesByDesigner(any())).thenAnswer(invocation -> {
+                Long designerId = invocation.getArgument(0, Long.class);
+                return intakes.values().stream()
+                        .filter(intake -> designerId.equals(intake.getMatchedDesignerId()))
+                        .filter(intake -> intake.getStatus() == ConsultantIntakeStatus.MATCHED
+                                || intake.getStatus() == ConsultantIntakeStatus.ACCEPTED)
+                        .count();
+            });
             when(consultationRepository.listIntakesByDesigner(any())).thenAnswer(invocation -> {
                 Long designerId = invocation.getArgument(0, Long.class);
                 return intakes.values().stream()

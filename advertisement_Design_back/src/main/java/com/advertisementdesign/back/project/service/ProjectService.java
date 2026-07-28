@@ -7,9 +7,10 @@ import com.advertisementdesign.back.common.audit.repository.AuditRepository;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.common.web.CurrentUser;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
+import com.advertisementdesign.back.consultation.model.ProjectPreparationModels;
+import com.advertisementdesign.back.consultation.service.ProjectPreparationService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.project.entity.ProjectEntity;
@@ -21,6 +22,7 @@ import com.advertisementdesign.back.communication.repository.CommunicationReposi
 import com.advertisementdesign.back.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -35,6 +37,7 @@ public class ProjectService {
     private final CommunicationRepository communicationRepository;
     private final ProjectConverter converter;
     private final AuthService authService;
+    private final ProjectPreparationService projectPreparationService;
 
     public PageResult<ProjectModels.ProjectVO> list(String status, String currentStage, String keyword, long page, long size) {
         UserProfile currentUser = authService.currentUserProfile();
@@ -57,16 +60,34 @@ public class ProjectService {
         return converter.toProjectVO(project);
     }
 
-    @Transactional
+    /**
+     * @deprecated 正式项目必须由已确认的咨询创建。
+     */
+    @Deprecated
     public ProjectModels.ProjectVO create(ProjectModels.CreateProjectRequest request) {
-        ensureDesigner();
-        if (request.customerId() == null || request.designerId() == null || request.name() == null || request.name().isBlank()) {
-            throw new ApiException(ApiErrorCode.BAD_REQUEST);
+        throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(),
+                "请使用 /api/projects/from-consultation 基于已接待咨询创建正式项目");
+    }
+
+    @Transactional
+    public ProjectModels.ProjectVO createFromConsultation(
+            ProjectModels.CreateProjectFromConsultationRequest request) {
+        ProjectPreparationModels.ProjectPreparation preparation =
+                projectPreparationService.lockForProjectCreation(request.intakeId());
+        if (!preparation.contractConfirmed()) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "请先确认合同已签署");
+        }
+        if (!preparation.initialPaymentConfirmed()) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "请先确认已收到项目首付款");
+        }
+        if (projectRepository.findProjectByConsultantIntakeId(preparation.intakeId()).isPresent()) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "该咨询已创建正式项目，请勿重复创建");
         }
         ProjectEntity project = ProjectEntity.builder()
-                .name(request.name())
-                .customerId(request.customerId())
-                .designerId(request.designerId())
+                .name(request.name().trim())
+                .customerId(preparation.customerId())
+                .designerId(preparation.designerId())
+                .consultantIntakeId(preparation.intakeId())
                 .description(request.description())
                 .currentStage("REQUIREMENT_GUIDE")
                 .status(ProjectStatus.IN_PROGRESS)
@@ -74,17 +95,23 @@ public class ProjectService {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
-        project = projectRepository.saveProject(project);
+        try {
+            project = projectRepository.saveProject(project);
+        } catch (DuplicateKeyException exception) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "该咨询已创建正式项目，请勿重复创建");
+        }
         ensureConversation(project);
         createDefaultStages(project.getId());
         auditRepository.save(OperationLogEntity.builder()
-                .operatorId(authService.currentUserProfile().id())
+                .operatorId(preparation.designerId())
                 .operatorRole(MessageSenderRole.DESIGNER)
                 .bizType("PROJECT")
                 .bizId(project.getId())
-                .action("CREATE")
-                .description("创建项目")
-                .afterData(java.util.Map.of("status", project.getStatus().name()))
+                .action("CREATE_FROM_CONSULTATION")
+                .description("从已确认咨询创建正式项目")
+                .afterData(java.util.Map.of(
+                        "status", project.getStatus().name(),
+                        "consultantIntakeId", preparation.intakeId()))
                 .createdAt(LocalDateTime.now())
                 .build());
         return converter.toProjectVO(project);
@@ -92,15 +119,16 @@ public class ProjectService {
 
     @Transactional
     public ProjectModels.ProjectVO update(Long id, ProjectModels.UpdateProjectRequest request) {
+        ensureDesigner();
         ProjectEntity project = findAllowedProject(id);
+        if (request.designerId() != null) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "不允许通过项目更新接口变更设计师");
+        }
         if (request.name() != null) {
             project.setName(request.name());
         }
         if (request.description() != null) {
             project.setDescription(request.description());
-        }
-        if (request.designerId() != null) {
-            project.setDesignerId(request.designerId());
         }
         if (request.status() != null) {
             project.setStatus(request.status());
@@ -112,6 +140,7 @@ public class ProjectService {
 
     @Transactional
     public boolean delete(Long id) {
+        ensureDesigner();
         ProjectEntity project = findAllowedProject(id);
         project.setStatus(ProjectStatus.CANCELLED);
         project.setUpdatedAt(LocalDateTime.now());
@@ -126,11 +155,11 @@ public class ProjectService {
 
     private ProjectEntity findAllowedProject(Long id) {
         ProjectEntity project = projectRepository.findProjectById(id).orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
-        CurrentUser currentUser = com.advertisementdesign.back.common.web.AuthContext.currentUser();
-        if (currentUser.getRole() == UserRole.CUSTOMER && !Objects.equals(project.getCustomerId(), currentUser.getId())) {
+        UserProfile currentUser = authService.currentUserProfile();
+        if (currentUser.role() == UserRole.CUSTOMER && !Objects.equals(project.getCustomerId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
-        if (currentUser.getRole() == UserRole.DESIGNER && !Objects.equals(project.getDesignerId(), currentUser.getId())) {
+        if (currentUser.role() == UserRole.DESIGNER && !Objects.equals(project.getDesignerId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
         return project;

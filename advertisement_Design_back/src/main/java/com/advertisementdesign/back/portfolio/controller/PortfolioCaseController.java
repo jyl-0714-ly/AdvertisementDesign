@@ -2,13 +2,16 @@ package com.advertisementdesign.back.portfolio.controller;
 
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.api.Result;
+import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.portfolio.enums.PortfolioCategory;
 import com.advertisementdesign.back.portfolio.model.PortfolioModels;
 import com.advertisementdesign.back.portfolio.service.PortfolioCaseService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Tag(name = "PortfolioCase", description = "作品案例接口")
 @RestController
@@ -44,13 +51,32 @@ public class PortfolioCaseController {
         return Result.success(portfolioCaseService.detail(id));
     }
 
-    @Operation(summary = "新增作品案例")
+    @Operation(summary = "上传作品案例公开图片", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<FileModels.FileAssetVO> uploadImage(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(defaultValue = "false") boolean cover) {
+        return Result.success(portfolioCaseService.uploadPublicImage(file, cover));
+    }
+
+    @Operation(
+            summary = "批量上传作品案例公开图片",
+            description = "仅限设计师；单次最多60张。cover=true上传封面，cover=false上传详情图",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping(value = "/images/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<List<FileModels.FileAssetVO>> uploadImages(
+            @RequestPart("files") List<MultipartFile> files,
+            @RequestParam(defaultValue = "false") boolean cover) {
+        return Result.success(portfolioCaseService.uploadPublicImages(files, cover));
+    }
+
+    @Operation(summary = "新增作品案例", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping
     public Result<PortfolioModels.PortfolioCaseVO> create(@Valid @org.springframework.web.bind.annotation.RequestBody PortfolioModels.PortfolioCaseRequest request) {
         return Result.success(portfolioCaseService.create(request));
     }
 
-    @Operation(summary = "更新作品案例")
+    @Operation(summary = "更新作品案例", security = @SecurityRequirement(name = "bearerAuth"))
     @PutMapping("/{id}")
     public Result<PortfolioModels.PortfolioCaseVO> update(
             @PathVariable Long id,
@@ -58,7 +84,7 @@ public class PortfolioCaseController {
         return Result.success(portfolioCaseService.update(id, request));
     }
 
-    @Operation(summary = "删除或下线作品案例")
+    @Operation(summary = "删除或下线作品案例", security = @SecurityRequirement(name = "bearerAuth"))
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.success(portfolioCaseService.delete(id));

@@ -36,7 +36,7 @@ public class ProjectConverter {
         return new ProjectModels.ProjectVO(
                 entity.getId(), entity.getName(), entity.getDescription(),
                 entity.getCustomerId(), customerName,
-                entity.getDesignerId(), designerName,
+                entity.getDesignerId(), designerName, entity.getConsultantIntakeId(),
                 entity.getCurrentStage(), stageName, entity.getStatus(), entity.getProgress(),
                 entity.getCreatedAt().toString(), entity.getUpdatedAt().toString()
         );

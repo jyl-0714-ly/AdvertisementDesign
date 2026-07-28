@@ -120,7 +120,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowRight, Bell, ChatDotRound, Close, DataAnalysis, Operation, Paperclip, Picture, Sunny } from '@element-plus/icons-vue'
-import { confirmStageAction, createStageAction, downloadFile, getProject, listConversations, listMessages, listProjectStages, listStageActions, markConversationRead, rejectStageAction, sendMessage, uploadFile } from '@/api'
+import { confirmStageAction, createStageAction, downloadFile, getProject, listConversations, listMessages, listProjectStages, listStageActions, markConversationRead, rejectStageAction, sendMessage, uploadConversationFile } from '@/api'
 import type { ConversationVO, FileAssetVO, MessageVO, ProjectStageVO, ProjectVO, StageActionVO } from '@/models'
 import { useAuthStore } from '@/stores/auth'
 
@@ -275,7 +275,7 @@ async function send() {
   sending.value = true
   try {
     let uploaded: FileAssetVO | null = null
-    if (pendingFile.value) uploaded = await uploadFile(pendingFile.value)
+    if (pendingFile.value) uploaded = await uploadConversationFile(activeConversation.value.id, pendingFile.value)
     const message = await sendMessage(activeConversation.value.id, {
       messageType: uploaded ? (uploaded.mimeType?.startsWith('image/') ? 'IMAGE' : 'FILE') : 'TEXT',
       content: messageText.value.trim() || null,

@@ -5,7 +5,6 @@ import com.advertisementdesign.back.common.api.Result;
 import com.advertisementdesign.back.common.storage.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -29,7 +28,11 @@ import java.nio.charset.StandardCharsets;
 public class FileController {
     private final FileService fileService;
 
-    @Operation(summary = "上传文件")
+    @Deprecated(forRemoval = true)
+    @Operation(
+            summary = "上传通用私有文件（兼容接口）",
+            deprecated = true,
+            description = "仅为旧客户端保留；新业务必须使用作品、项目或会话上下文中的上传接口")
     @PostMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<FileModels.FileAssetVO> upload(@RequestPart("file") MultipartFile file) {
         return Result.success(fileService.upload(file));

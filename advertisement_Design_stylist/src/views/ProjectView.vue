@@ -168,7 +168,7 @@ import {
   listProjectStages,
   rejectStageAction,
   sendMessage,
-  uploadFile
+  uploadProjectFile
 } from '@/api'
 import type { ConversationVO, FileRole, MessageVO, OperationLogVO, ProjectFileVO, ProjectStageVO, ProjectVO, StageActionVO } from '@/models'
 import {
@@ -283,10 +283,10 @@ function selectFile(uploadFileEvent: { raw?: File }) {
 }
 
 async function uploadSelectedFile() {
-  if (!selectedFile.value) return
+  if (!project.value || !selectedFile.value) return
   try {
     uploading.value = true
-    const file = await uploadFile(selectedFile.value)
+    const file = await uploadProjectFile(project.value.id, archiveForm.fileRole, selectedFile.value)
     archiveForm.fileId = file.id
     ElMessage.success('上传成功')
   } catch (error) {

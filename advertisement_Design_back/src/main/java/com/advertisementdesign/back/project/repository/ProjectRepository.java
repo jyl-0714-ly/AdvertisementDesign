@@ -15,6 +15,8 @@ public interface ProjectRepository {
 
     Optional<ProjectEntity> findProjectById(Long id);
 
+    Optional<ProjectEntity> findProjectByConsultantIntakeId(Long consultantIntakeId);
+
     ProjectEntity saveProject(ProjectEntity project);
 
     List<ProjectStageEntity> listStages(Long projectId);
@@ -44,6 +46,8 @@ public interface ProjectRepository {
     ProjectFileEntity saveProjectFile(ProjectFileEntity projectFile);
 
     Optional<ProjectFileEntity> findProjectFileById(Long id);
+
+    boolean existsProjectFile(Long projectId, Long fileId);
 
     boolean canUserAccessFile(Long fileId, Long userId);
 

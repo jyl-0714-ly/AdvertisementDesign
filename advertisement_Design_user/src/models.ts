@@ -25,11 +25,18 @@ export interface MatchedDesignerVO {
   specialties: string[]
 }
 
+export type ConsultantIntakeStatus = 'AGENT_COLLECTING' | 'READY_FOR_HANDOFF' | 'MATCHED' | 'ACCEPTED'
+
 export interface ConsultantIntakeResponse {
   intakeId: number
-  status: string
-  matchedDesigner: MatchedDesignerVO
-  humanChatId: string
+  status: ConsultantIntakeStatus
+  projectType?: string | null
+  industry?: string | null
+  requirementDescription?: string | null
+  budgetRange?: string | null
+  projectCycle?: string | null
+  matchedDesigner: MatchedDesignerVO | null
+  humanChatId: string | null
   greetingMessages: string[]
   createdAt: string
 }

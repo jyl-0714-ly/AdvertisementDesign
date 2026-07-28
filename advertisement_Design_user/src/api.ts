@@ -144,6 +144,30 @@ export function updateMe(payload: UpdateUserRequest) {
   })
 }
 
+export function createConsultantIntakeDraft(payload: ConsultantIntakeRequest) {
+  return request<ConsultantIntakeResponse>('/consultant-intakes/drafts', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateConsultantIntakeDraft(intakeId: number, payload: ConsultantIntakeRequest) {
+  return request<ConsultantIntakeResponse>(`/consultant-intakes/${intakeId}/draft`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function getCurrentConsultantIntake() {
+  return request<ConsultantIntakeResponse>('/consultant-intakes/current')
+}
+
+export function handoffConsultantIntake(intakeId: number) {
+  return request<ConsultantIntakeResponse>(`/consultant-intakes/${intakeId}/handoff`, {
+    method: 'POST'
+  })
+}
+
 export function createConsultantIntake(payload: ConsultantIntakeRequest) {
   return request<ConsultantIntakeResponse>('/consultant-intakes', {
     method: 'POST',
@@ -211,10 +235,14 @@ export function sendMessage(conversationId: number, payload: SendMessageRequest)
   })
 }
 
-export async function uploadFile(file: File) {
+export async function uploadConversationFile(conversationId: number, file: File) {
   const body = new FormData()
   body.append('file', file)
-  return request<FileAssetVO>('/files', { method: 'POST', body })
+  const image = file.type.startsWith('image/')
+  return request<FileAssetVO>(`/conversations/${conversationId}/file-assets?image=${image}`, {
+    method: 'POST',
+    body
+  })
 }
 
 export function markConversationRead(conversationId: number, payload: MarkReadRequest) {

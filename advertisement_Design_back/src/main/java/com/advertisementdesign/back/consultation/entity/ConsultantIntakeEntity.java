@@ -30,6 +30,8 @@ public class ConsultantIntakeEntity {
     private String projectCycle;
     private ConsultantIntakeStatus status;
     private Long matchedDesignerId;
+    private LocalDateTime contractConfirmedAt;
+    private LocalDateTime initialPaymentConfirmedAt;
     private String humanChatId;
     @TableField(typeHandler = JacksonTypeHandler.class)
     private List<String> greetingMessages;

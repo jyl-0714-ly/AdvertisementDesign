@@ -3,6 +3,8 @@ package com.advertisementdesign.back.portfolio.service;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.web.CurrentUser;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.portfolio.entity.PortfolioCaseEntity;
 import com.advertisementdesign.back.portfolio.enums.PortfolioCategory;
@@ -24,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,6 +46,8 @@ import static org.mockito.Mockito.when;
 class PortfolioCaseServiceTest {
     @Mock
     private PortfolioCaseMapper portfolioCaseMapper;
+    @Mock
+    private FileService fileService;
 
     private PortfolioCaseService portfolioCaseService;
 
@@ -56,7 +61,7 @@ class PortfolioCaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper);
+        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper, fileService);
     }
 
     @AfterEach
@@ -126,6 +131,59 @@ class PortfolioCaseServiceTest {
         assertTrue(captor.getValue().getParamNameValuePairs().containsValue(PortfolioStatus.PUBLISHED));
         assertTrue(captor.getValue().getParamNameValuePairs().containsValue(Boolean.TRUE));
         assertTrue(captor.getValue().getParamNameValuePairs().containsValue(99L));
+    }
+
+    @Test
+    void designerUploadsPortfolioImagesToControlledPublicScenes() {
+        authenticate(UserRole.DESIGNER);
+        MockMultipartFile cover = new MockMultipartFile(
+                "file", "cover.webp", "image/webp", new byte[]{1});
+        MockMultipartFile detail = new MockMultipartFile(
+                "file", "detail.jpg", "image/jpeg", new byte[]{2});
+
+        portfolioCaseService.uploadPublicImage(cover, true);
+        portfolioCaseService.uploadPublicImage(detail, false);
+
+        verify(fileService).upload(cover, StorageScene.PORTFOLIO_COVER_PUBLIC);
+        verify(fileService).upload(detail, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
+    }
+
+    @Test
+    void designerBatchUploadsPortfolioImagesToControlledPublicScene() {
+        authenticate(UserRole.DESIGNER);
+        MockMultipartFile first = new MockMultipartFile(
+                "files", "brand-01-01.webp", "image/webp", new byte[]{1});
+        MockMultipartFile second = new MockMultipartFile(
+                "files", "brand-01-02.webp", "image/webp", new byte[]{2});
+
+        portfolioCaseService.uploadPublicImages(List.of(first, second), false);
+
+        verify(fileService).upload(first, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
+        verify(fileService).upload(second, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
+    }
+
+    @Test
+    void batchUploadRejectsEmptyFileList() {
+        authenticate(UserRole.DESIGNER);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> portfolioCaseService.uploadPublicImages(List.of(), false));
+
+        assertEquals(400, exception.getCode());
+        verify(fileService, never()).upload(any(), any(StorageScene.class));
+    }
+
+    @Test
+    void customerCannotUploadPortfolioImage() {
+        authenticate(UserRole.CUSTOMER);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "cover.jpg", "image/jpeg", new byte[]{1});
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> portfolioCaseService.uploadPublicImage(file, true));
+
+        assertEquals(403, exception.getCode());
+        verify(fileService, never()).upload(any(), any(StorageScene.class));
     }
 
     @Test

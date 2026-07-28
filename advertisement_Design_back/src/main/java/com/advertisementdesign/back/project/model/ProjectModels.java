@@ -15,7 +15,14 @@ public final class ProjectModels {
     public record CreateProjectRequest(@NotNull Long customerId, @NotNull Long designerId, @NotBlank String name, String description) {
     }
 
-    @Schema(description = "更新项目请求")
+    @Schema(description = "基于已确认咨询创建正式项目请求")
+    public record CreateProjectFromConsultationRequest(
+            @NotNull Long intakeId,
+            @NotBlank String name,
+            String description) {
+    }
+
+    @Schema(description = "更新项目请求；designerId 仅为旧客户端兼容字段，传入将被拒绝")
     public record UpdateProjectRequest(Long designerId, String name, String description, ProjectStatus status) {
     }
 
@@ -28,6 +35,7 @@ public final class ProjectModels {
             String customerName,
             Long designerId,
             String designerName,
+            Long consultantIntakeId,
             String currentStage,
             String currentStageName,
             ProjectStatus status,

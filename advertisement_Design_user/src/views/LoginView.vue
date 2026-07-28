@@ -42,6 +42,11 @@
           <p>选择适合你的方式登录客户工作台。</p>
         </div>
 
+        <div v-if="isPortfolioRedirect" class="portfolio-login-notice" role="status">
+          <strong>登录后查看更多案例</strong>
+          <span>登录客户账号后，将继续前往完整案例库。</span>
+        </div>
+
         <div class="mode-switch" role="tablist" aria-label="登录方式">
           <button type="button" :class="{ active: loginMode === 'password' }" @click="loginMode = 'password'">
             <Lock class="mode-icon" />
@@ -62,7 +67,6 @@
               :prefix-icon="User"
               size="large"
             />
-            <button type="button" class="demo-link" @click="fillCustomer">使用演示账号登录</button>
           </el-form-item>
 
           <el-form-item v-if="loginMode === 'password'" label="密码">
@@ -135,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Message, User } from '@element-plus/icons-vue'
@@ -143,6 +147,7 @@ import { registerCustomer, resetCustomerPassword, sendAuthEmailCode } from '@/ap
 import BrandMark from '@/components/BrandMark.vue'
 import { appName, appSubTitle } from '@/config'
 import { useAuthStore } from '@/stores/auth'
+import { sanitizeInternalRedirect } from '@/utils/safeRedirect'
 
 type LoginMode = 'password' | 'emailCode'
 
@@ -166,21 +171,17 @@ let registerTimer: ReturnType<typeof window.setInterval> | undefined
 let resetTimer: ReturnType<typeof window.setInterval> | undefined
 
 const form = reactive({
-  account: 'customer@163.com',
-  password: '123456',
+  account: '',
+  password: '',
   emailCode: ''
 })
+const safeRedirect = computed(() => sanitizeInternalRedirect(route.query.redirect))
+const isPortfolioRedirect = computed(() => safeRedirect.value === '/portfolio')
 const registerForm = reactive({ email: '', code: '', nickname: '', password: '', confirmPassword: '' })
 const resetForm = reactive({ email: '', code: '', password: '', confirmPassword: '' })
 
 function isSupportedEmail(value: string) {
   return /^[A-Za-z0-9._%+-]+@(qq\.com|163\.com|126\.com|yeah\.net)$/i.test(value.trim())
-}
-
-function fillCustomer() {
-  form.account = 'customer@163.com'
-  form.password = '123456'
-  form.emailCode = '123456'
 }
 
 async function startCooldown(kind: 'login' | 'register' | 'reset') {
@@ -351,8 +352,7 @@ async function submit() {
     if (loginMode.value === 'password') await auth.login(form.account.trim(), form.password)
     else await auth.loginByEmailCode(form.account.trim(), form.emailCode.trim())
     ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/consultant'
-    await router.replace(redirect)
+    await router.replace(safeRedirect.value)
   } catch (error) {
     setLoginError(messageOf(error))
   } finally {
@@ -622,7 +622,18 @@ onBeforeUnmount(() => {
   color: #94a3b8;
 }
 
-.demo-link,
+.portfolio-login-notice {
+  padding: 13px 15px;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  background: #f0faff;
+}
+
+.portfolio-login-notice strong { color: #0369a1; font-size: 14px; }
+.portfolio-login-notice span { color: #64748b; font-size: 12px; }
+
 .plain-link {
   padding: 0;
   border: 0;
@@ -632,12 +643,6 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.demo-link {
-  margin-top: 8px;
-  font-weight: 650;
-}
-
-.demo-link:hover,
 .plain-link:hover {
   color: #0369a1;
 }

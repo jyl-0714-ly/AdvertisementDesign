@@ -6,7 +6,9 @@ import com.advertisementdesign.back.common.audit.repository.AuditRepository;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.entity.MessageEntity;
 import com.advertisementdesign.back.communication.enums.MessageType;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
@@ -42,6 +45,8 @@ class ConversationServiceTest {
     @Mock
     private StorageRepository storageRepository;
     @Mock
+    private FileService fileService;
+    @Mock
     private ProjectRepository projectRepository;
     @Mock
     private AuditRepository auditRepository;
@@ -55,7 +60,42 @@ class ConversationServiceTest {
     @BeforeEach
     void setUp() {
         conversationService = new ConversationService(
-                communicationRepository, storageRepository, projectRepository, auditRepository, converter, authService);
+                communicationRepository, storageRepository, fileService,
+                projectRepository, auditRepository, converter, authService);
+    }
+
+    @Test
+    void participantUploadsConversationFilesToControlledPrivateScenes() {
+        MockMultipartFile image = new MockMultipartFile(
+                "file", "preview.webp", "image/webp", new byte[]{1});
+        MockMultipartFile attachment = new MockMultipartFile(
+                "file", "brief.pdf", "application/pdf", new byte[]{2});
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(conversation()));
+        when(authService.currentUserProfile())
+                .thenReturn(user(1L, UserRole.CUSTOMER));
+
+        conversationService.uploadAttachment(1L, true, image);
+        conversationService.uploadAttachment(1L, false, attachment);
+
+        verify(fileService).upload(image, StorageScene.CONVERSATION_IMAGE);
+        verify(fileService).upload(attachment, StorageScene.CONVERSATION_ATTACHMENT);
+    }
+
+    @Test
+    void nonParticipantCannotUploadConversationFile() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "brief.pdf", "application/pdf", new byte[]{1});
+        when(communicationRepository.findConversationById(1L))
+                .thenReturn(Optional.of(conversation()));
+        when(authService.currentUserProfile())
+                .thenReturn(user(99L, UserRole.CUSTOMER));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> conversationService.uploadAttachment(1L, false, file));
+
+        assertEquals(403, exception.getCode());
+        verify(fileService, never()).upload(any(), any(StorageScene.class));
     }
 
     @Test

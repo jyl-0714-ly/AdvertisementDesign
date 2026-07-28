@@ -1,6 +1,8 @@
 package com.advertisementdesign.back.common.storage.service;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.advertisementdesign.back.common.storage.config.StorageProperties;
+import com.advertisementdesign.back.common.storage.enums.StorageProvider;
+import com.advertisementdesign.back.common.storage.enums.StorageVisibility;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -9,29 +11,56 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Optional;
 
 @Component
-public class LocalFileStorage {
+public class LocalFileStorage implements StorageGateway {
     private final Path rootDirectory;
 
-    public LocalFileStorage(@Value("${app.storage.local-root:uploads}") String rootDirectory) {
-        this.rootDirectory = Path.of(rootDirectory).toAbsolutePath().normalize();
+    public LocalFileStorage(StorageProperties properties) {
+        this.rootDirectory = Path.of(properties.getLocalRoot()).toAbsolutePath().normalize();
+    }
+
+    @Override
+    public StorageProvider provider() {
+        return StorageProvider.LOCAL;
     }
 
     public void store(String objectKey, MultipartFile file) throws IOException {
-        Path target = resolve(objectKey);
-        Files.createDirectories(target.getParent());
-        try (InputStream inputStream = file.getInputStream()) {
-            Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        store(null, objectKey, file.getInputStream(), file.getSize(), file.getContentType(), StorageVisibility.PRIVATE);
     }
 
     public byte[] read(String objectKey) throws IOException {
-        return Files.readAllBytes(resolve(objectKey));
+        return read(null, objectKey);
     }
 
     public void delete(String objectKey) throws IOException {
+        delete(null, objectKey);
+    }
+
+    @Override
+    public void store(String bucketName, String objectKey, InputStream inputStream, long contentLength,
+                      String contentType, StorageVisibility visibility) throws IOException {
+        Path target = resolve(objectKey);
+        Files.createDirectories(target.getParent());
+        try (InputStream source = inputStream) {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    @Override
+    public byte[] read(String bucketName, String objectKey) throws IOException {
+        return Files.readAllBytes(resolve(objectKey));
+    }
+
+    @Override
+    public void delete(String bucketName, String objectKey) throws IOException {
         Files.deleteIfExists(resolve(objectKey));
+    }
+
+    @Override
+    public Optional<String> publicUrl(String bucketName, String objectKey, StorageVisibility visibility) {
+        return Optional.empty();
     }
 
     private Path resolve(String objectKey) {

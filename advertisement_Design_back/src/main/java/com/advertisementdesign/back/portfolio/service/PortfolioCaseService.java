@@ -5,6 +5,9 @@ import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.web.AuthContext;
 import com.advertisementdesign.back.common.web.CurrentUser;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
+import com.advertisementdesign.back.common.storage.model.FileModels;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.portfolio.converter.PortfolioCaseConverter;
 import com.advertisementdesign.back.portfolio.entity.PortfolioCaseEntity;
@@ -18,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,7 +29,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PortfolioCaseService {
+    private static final int MAX_BATCH_IMAGE_COUNT = 60;
+
     private final PortfolioCaseMapper portfolioCaseMapper;
+    private final FileService fileService;
 
     public PageResult<PortfolioModels.PortfolioCaseVO> list(
             PortfolioCategory category,
@@ -68,6 +75,36 @@ public class PortfolioCaseService {
             throw new ApiException(ApiErrorCode.NOT_FOUND);
         }
         return PortfolioCaseConverter.toVO(entity);
+    }
+
+    public FileModels.FileAssetVO uploadPublicImage(
+            MultipartFile file,
+            boolean cover) {
+        ensureDesigner();
+        return uploadPublicImageToScene(file, cover);
+    }
+
+    public List<FileModels.FileAssetVO> uploadPublicImages(
+            List<MultipartFile> files,
+            boolean cover) {
+        ensureDesigner();
+        if (files == null || files.isEmpty()) {
+            throw new ApiException(400, "请选择至少一张图片");
+        }
+        if (files.size() > MAX_BATCH_IMAGE_COUNT) {
+            throw new ApiException(400, "单次最多上传60张图片");
+        }
+        return files.stream()
+                .map(file -> uploadPublicImageToScene(file, cover))
+                .toList();
+    }
+
+    private FileModels.FileAssetVO uploadPublicImageToScene(
+            MultipartFile file,
+            boolean cover) {
+        return fileService.upload(file, cover
+                ? StorageScene.PORTFOLIO_COVER_PUBLIC
+                : StorageScene.PORTFOLIO_DETAIL_PUBLIC);
     }
 
     @Transactional

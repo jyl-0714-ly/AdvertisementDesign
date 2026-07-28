@@ -5,6 +5,7 @@ import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
 import com.advertisementdesign.back.identity.enums.UserStatus;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -51,11 +53,36 @@ class FileServiceTest {
     }
 
     @Test
+    void publicPortfolioSceneRejectsNonImageFile() {
+        MockMultipartFile pdf = new MockMultipartFile(
+                "file", "case.pdf", "application/pdf", new byte[]{1});
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> fileService.upload(pdf, StorageScene.PORTFOLIO_COVER_PUBLIC));
+
+        assertEquals(400, exception.getCode());
+        verify(storageRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void conversationImageSceneRejectsMismatchedImageExtensionAndMimeType() {
+        MockMultipartFile disguisedFile = new MockMultipartFile(
+                "file", "preview.jpg", "application/pdf", new byte[]{1});
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> fileService.upload(disguisedFile, StorageScene.CONVERSATION_IMAGE));
+
+        assertEquals(400, exception.getCode());
+        verify(storageRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void conversationParticipantCanDownloadAttachedFile() throws IOException {
         when(storageRepository.findById(8L)).thenReturn(Optional.of(activeFile(8L, 2L)));
         when(authService.currentUserProfile()).thenReturn(user(1L));
         when(communicationRepository.canUserAccessAttachedFile(8L, 1L)).thenReturn(true);
-        when(localFileStorage.read("uploads/8/attachment.pdf")).thenReturn("attachment content".getBytes());
+        when(localFileStorage.read(null, "uploads/8/attachment.pdf"))
+                .thenReturn("attachment content".getBytes());
 
         byte[] body = fileService.download(8L);
 

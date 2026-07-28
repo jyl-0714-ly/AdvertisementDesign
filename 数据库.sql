@@ -67,15 +67,17 @@ CREATE TABLE `designer_profile` (
 CREATE TABLE `consultant_intake` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
   `customer_id` BIGINT NOT NULL COMMENT '提交需求的客户 ID',
-  `project_type` VARCHAR(100) NOT NULL COMMENT '项目类型',
-  `industry` VARCHAR(100) NOT NULL COMMENT '所属行业',
-  `requirement_description` TEXT NOT NULL COMMENT '需求描述',
-  `budget_range` VARCHAR(100) NOT NULL COMMENT '预算范围',
-  `project_cycle` VARCHAR(100) NOT NULL COMMENT '项目周期',
-  `status` VARCHAR(32) NOT NULL COMMENT '状态：MATCHED / ACCEPTED',
-  `matched_designer_id` BIGINT NOT NULL COMMENT '匹配设计师 ID',
-  `human_chat_id` VARCHAR(64) NOT NULL COMMENT '人工咨询会话业务 ID',
-  `greeting_messages` JSON NOT NULL COMMENT '交接问候语列表',
+  `project_type` VARCHAR(100) DEFAULT NULL COMMENT '项目类型',
+  `industry` VARCHAR(100) DEFAULT NULL COMMENT '所属行业',
+  `requirement_description` TEXT DEFAULT NULL COMMENT '需求描述',
+  `budget_range` VARCHAR(100) DEFAULT NULL COMMENT '预算范围',
+  `project_cycle` VARCHAR(100) DEFAULT NULL COMMENT '项目周期',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'AGENT_COLLECTING' COMMENT '状态：AGENT_COLLECTING / READY_FOR_HANDOFF / MATCHED / ACCEPTED',
+  `matched_designer_id` BIGINT DEFAULT NULL COMMENT '匹配设计师 ID',
+  `contract_confirmed_at` DATETIME DEFAULT NULL COMMENT '合同已线下确认时间',
+  `initial_payment_confirmed_at` DATETIME DEFAULT NULL COMMENT '首付款已确认时间',
+  `human_chat_id` VARCHAR(64) DEFAULT NULL COMMENT '人工咨询会话业务 ID',
+  `greeting_messages` JSON DEFAULT NULL COMMENT '交接问候语列表',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -84,7 +86,7 @@ CREATE TABLE `consultant_intake` (
   KEY `idx_consultant_intake_designer_created` (`matched_designer_id`, `created_at`),
   CONSTRAINT `fk_consultant_intake_customer` FOREIGN KEY (`customer_id`) REFERENCES `user` (`id`),
   CONSTRAINT `fk_consultant_intake_designer` FOREIGN KEY (`matched_designer_id`) REFERENCES `user` (`id`),
-  CONSTRAINT `chk_consultant_intake_status` CHECK (`status` IN ('MATCHED', 'ACCEPTED'))
+  CONSTRAINT `chk_consultant_intake_status` CHECK (`status` IN ('AGENT_COLLECTING', 'READY_FOR_HANDOFF', 'MATCHED', 'ACCEPTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='咨询需求单表';
 
 CREATE TABLE `consultant_human_message` (
@@ -159,6 +161,7 @@ CREATE TABLE `project` (
   `name` VARCHAR(128) NOT NULL COMMENT '项目名称',
   `customer_id` BIGINT NOT NULL COMMENT '客户 ID',
   `designer_id` BIGINT NOT NULL COMMENT '设计师 ID',
+  `consultant_intake_id` BIGINT DEFAULT NULL COMMENT '来源咨询需求单 ID；历史项目可为空',
   `description` TEXT DEFAULT NULL COMMENT '项目说明',
   `current_stage` VARCHAR(64) NOT NULL COMMENT '当前阶段编码',
   `status` VARCHAR(32) NOT NULL DEFAULT 'IN_PROGRESS' COMMENT '项目状态：IN_PROGRESS / COMPLETED / PAUSED / CANCELLED',
@@ -166,12 +169,14 @@ CREATE TABLE `project` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_project_consultant_intake` (`consultant_intake_id`),
   KEY `idx_project_customer` (`customer_id`),
   KEY `idx_project_designer` (`designer_id`),
   KEY `idx_project_current_stage` (`current_stage`),
   KEY `idx_project_status` (`status`),
   CONSTRAINT `fk_project_customer` FOREIGN KEY (`customer_id`) REFERENCES `user` (`id`),
   CONSTRAINT `fk_project_designer` FOREIGN KEY (`designer_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `fk_project_consultant_intake` FOREIGN KEY (`consultant_intake_id`) REFERENCES `consultant_intake` (`id`),
   CONSTRAINT `chk_project_progress` CHECK (`progress` >= 0 AND `progress` <= 100),
   CONSTRAINT `chk_project_status` CHECK (`status` IN ('IN_PROGRESS', 'COMPLETED', 'PAUSED', 'CANCELLED')),
   CONSTRAINT `chk_project_current_stage` CHECK (`current_stage` IN (

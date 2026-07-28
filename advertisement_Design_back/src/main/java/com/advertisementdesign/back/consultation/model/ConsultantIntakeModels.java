@@ -32,6 +32,21 @@ public final class ConsultantIntakeModels {
     ) {
     }
 
+    @Schema(description = "公司客服 Agent 固定流程需求草稿请求")
+    public record SaveConsultantIntakeDraftRequest(
+            @Size(max = 100, message = "项目类型不能超过 100 个字符")
+            String projectType,
+            @Size(max = 100, message = "所属行业不能超过 100 个字符")
+            String industry,
+            @Size(max = 2000, message = "需求描述不能超过 2000 个字符")
+            String requirementDescription,
+            @Size(max = 100, message = "预算范围不能超过 100 个字符")
+            String budgetRange,
+            @Size(max = 100, message = "项目周期不能超过 100 个字符")
+            String projectCycle
+    ) {
+    }
+
     @Schema(description = "匹配设计师信息")
     public record MatchedDesignerVO(
             Long id,
@@ -61,10 +76,15 @@ public final class ConsultantIntakeModels {
     ) {
     }
 
-    @Schema(description = "顾问需求提交与设计师交接结果")
+    @Schema(description = "顾问需求草稿与交接结果")
     public record ConsultantIntakeVO(
             Long intakeId,
             ConsultantIntakeStatus status,
+            String projectType,
+            String industry,
+            String requirementDescription,
+            String budgetRange,
+            String projectCycle,
             MatchedDesignerVO matchedDesigner,
             String humanChatId,
             List<String> greetingMessages,

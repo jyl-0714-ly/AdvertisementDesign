@@ -35,41 +35,21 @@
       </PageSection>
     </div>
 
-    <PageSection title="新建项目" subtitle="演示时可直接创建项目">
-      <div class="table-actions" style="margin-bottom: 12px">
-        <el-button type="primary" @click="drawerVisible = true">创建项目</el-button>
+    <PageSection title="项目入口" subtitle="正式项目须从已接待的客户咨询中创建">
+      <div class="table-actions">
+        <el-button type="primary" @click="router.push('/reception')">前往客户接待</el-button>
         <el-button @click="load">刷新</el-button>
       </div>
-      <el-drawer v-model="drawerVisible" title="创建项目" size="480px">
-        <el-form :model="projectForm" label-position="top" class="drawer-form">
-          <el-form-item label="客户 ID">
-            <el-input v-model.number="projectForm.customerId" />
-          </el-form-item>
-          <el-form-item label="设计师 ID">
-            <el-input v-model.number="projectForm.designerId" />
-          </el-form-item>
-          <el-form-item label="项目名称">
-            <el-input v-model="projectForm.name" />
-          </el-form-item>
-          <el-form-item label="项目说明">
-            <el-input v-model="projectForm.description" type="textarea" :rows="4" />
-          </el-form-item>
-          <div class="table-actions">
-            <el-button type="primary" :loading="creating" @click="submitCreate">创建</el-button>
-            <el-button @click="drawerVisible = false">取消</el-button>
-          </div>
-        </el-form>
-      </el-drawer>
     </PageSection>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PageSection from '@/components/PageSection.vue'
 import StatCard from '@/components/StatCard.vue'
-import { createProject, listConversations, listPortfolioCases, listProjects } from '@/api'
+import { listConversations, listPortfolioCases, listProjects } from '@/api'
 import type { ConversationVO, PortfolioCaseVO, ProjectVO } from '@/models'
 import { projectStatusLabel } from '@/utils/displayLabels'
 import { ElMessage } from 'element-plus'
@@ -78,14 +58,6 @@ const router = useRouter()
 const projects = ref<ProjectVO[]>([])
 const conversations = ref<ConversationVO[]>([])
 const cases = ref<PortfolioCaseVO[]>([])
-const drawerVisible = ref(false)
-const creating = ref(false)
-const projectForm = reactive({
-  customerId: 1,
-  designerId: 2,
-  name: '',
-  description: ''
-})
 
 const stats = computed(() => ({
   totalProjects: projects.value.length,
@@ -118,28 +90,6 @@ async function load() {
 
 function openProject(id: number) {
   router.push(`/projects/${id}`)
-}
-
-async function submitCreate() {
-  try {
-    creating.value = true
-    const project = await createProject({
-      customerId: projectForm.customerId,
-      designerId: projectForm.designerId,
-      name: projectForm.name,
-      description: projectForm.description
-    })
-    ElMessage.success('创建成功')
-    drawerVisible.value = false
-    projectForm.name = ''
-    projectForm.description = ''
-    await load()
-    await router.push(`/projects/${project.id}`)
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '创建失败')
-  } finally {
-    creating.value = false
-  }
 }
 
 onMounted(load)

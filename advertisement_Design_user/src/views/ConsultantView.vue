@@ -113,7 +113,7 @@
             <div v-else-if="message.kind === 'summary'" class="summary-card">
               <header>
                 <div><small>REQUIREMENT BRIEF</small><h3>项目需求摘要</h3></div>
-                <span>{{ intakeResult ? '已交接' : '待确认' }}</span>
+                <span>{{ intakeResult?.status === 'MATCHED' || intakeResult?.status === 'ACCEPTED' ? '已交接' : '待确认' }}</span>
               </header>
               <dl>
                 <div><dt>项目类型</dt><dd>{{ intake.projectType }}</dd></div>
@@ -126,11 +126,11 @@
                 <strong>暂未完成匹配</strong><span>{{ matchError }}</span>
               </div>
               <footer>
-                <template v-if="!intakeResult">
+                <template v-if="!matchedDesigner">
                   <button type="button" class="secondary-action" :disabled="isMatching" @click="editIntake">修改需求</button>
                   <button type="button" class="primary-action" :disabled="isMatching" @click="submitIntake">
                     <span v-if="isMatching" class="button-spinner" aria-hidden="true"></span>
-                    {{ isMatching ? '正在匹配适合您的设计师...' : '提交设计师' }}
+                    {{ isMatching ? '正在转接人工设计师...' : '详细咨询' }}
                   </button>
                 </template>
                 <span v-else class="handoff-state">需求已交接给 {{ matchedDesigner?.nickname }}，请在人工服务会话继续沟通。</span>
@@ -139,8 +139,8 @@
 
             <div v-else class="message-bubble">
               <template v-if="message.kind === 'welcome'">
-                <p>您好，欢迎来到 AD 设计。</p>
-                <p>我们将先为您梳理项目范围，再安排适合的设计师接洽。请填写下方需求信息，也可以随时在输入框补充说明。</p>
+                <p>您好，欢迎来到 AD 设计。我是 AD 有限公司的客服 Agent，不是人工顾问。</p>
+                <p>我会按固定流程依次收集项目类型、所属行业、需求说明、预算范围和项目周期；保存草稿不会匹配设计师，只有您确认摘要并点击“详细咨询”后才会转接人工服务。</p>
               </template>
               <template v-else>{{ message.text }}</template>
             </div>
@@ -160,7 +160,7 @@
           <textarea
             v-model="draft"
             rows="3"
-            :placeholder="activeSession === 'human' ? `给${matchedDesigner?.nickname || '设计师'}留言…` : '补充您的设计需求或向项目顾问提问…'"
+            :placeholder="activeSession === 'human' ? `给${matchedDesigner?.nickname || '设计师'}留言…` : '补充您的设计需求或向公司客服 Agent 提问…'"
             aria-label="消息内容"
             @keydown.enter.exact.prevent="sendMessage"
           ></textarea>
@@ -187,9 +187,9 @@
           <div><small>服务机构</small><h3>AD有限公司</h3><p>品牌与商业视觉设计团队</p></div>
         </section>
         <section class="profile-card">
-          <header>项目顾问</header>
-          <div class="consultant-person"><span>顾</span><div><strong>在线项目顾问</strong><small><i></i>当前在线</small></div></div>
-          <p>从需求梳理、服务范围到合作流程，为您的设计项目提供前期咨询。</p>
+          <header>公司客服 Agent</header>
+          <div class="consultant-person"><span>AD</span><div><strong>固定流程客服 Agent</strong><small><i></i>自动收集中</small></div></div>
+          <p>这是公司自动化客服 Agent，不是人工顾问。它仅按固定步骤收集需求，点击“详细咨询”后才转接设计师。</p>
         </section>
         <section class="profile-card service-scope">
           <header>服务范围</header>
@@ -225,10 +225,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { Lock, Position, Search } from '@element-plus/icons-vue'
-import { createConsultantIntake, listConsultantHumanMessages, sendConsultantHumanMessage } from '@/api'
+import { createConsultantIntakeDraft, getCurrentConsultantIntake, handoffConsultantIntake, listConsultantHumanMessages, sendConsultantHumanMessage, updateConsultantIntakeDraft } from '@/api'
 import type { ConsultantHumanMessageVO, ConsultantIntakeRequest, ConsultantIntakeResponse, MatchedDesignerVO } from '@/models'
+import { consultationProjectTypes } from '@/services'
 import { useAuthStore } from '@/stores/auth'
 
 type SessionId = 'consultant' | 'human'
@@ -252,7 +253,7 @@ const matchedDesigner = ref<MatchedDesignerVO | null>(null)
 const intakeResult = ref<ConsultantIntakeResponse | null>(null)
 let messageSequence = 2
 
-const projectTypes = ['品牌视觉设计', '宣传物料设计', '包装设计', '活动视觉设计', '商业空间视觉设计', '其他设计服务']
+const projectTypes = consultationProjectTypes
 const budgetRanges = ['5,000 元以内', '5,000–10,000 元', '10,000–30,000 元', '30,000–50,000 元', '50,000 元以上', '待沟通评估']
 const projectCycles = ['1 周以内', '1–2 周', '2–4 周', '1–2 个月', '2 个月以上', '待沟通确认']
 const quickOptions = ['品牌升级', '宣传设计', '包装设计', '活动设计', '其他需求']
@@ -266,14 +267,14 @@ const humanMessages = ref<ConsultantMessage[]>([])
 const customerInitial = computed(() => auth.user?.nickname?.slice(0, 1) || '我')
 const designerInitial = computed(() => matchedDesigner.value?.nickname?.slice(0, 1) || '设')
 const activeMessages = computed(() => activeSession.value === 'human' ? humanMessages.value : consultantMessages.value)
-const senderName = computed(() => activeSession.value === 'human' ? matchedDesigner.value?.nickname || '项目设计师' : 'AD有限公司 · 项目顾问')
-const activeTitle = computed(() => activeSession.value === 'human' ? `${matchedDesigner.value?.nickname || '项目设计师'} · 人工服务` : 'AD有限公司 · 项目顾问')
+const senderName = computed(() => activeSession.value === 'human' ? matchedDesigner.value?.nickname || '项目设计师' : 'AD有限公司 · 客服 Agent')
+const activeTitle = computed(() => activeSession.value === 'human' ? `${matchedDesigner.value?.nickname || '项目设计师'} · 人工服务` : 'AD有限公司 · 客服 Agent')
 const activeStatus = computed(() => activeSession.value === 'human'
   ? `${matchedDesigner.value?.online ? '在线' : '离线'} · 已接收您的需求摘要`
-  : '在线 · 为您提供设计需求咨询')
+  : '固定流程 · 自动收集需求（非人工）')
 const sessions = computed(() => {
   const consultantLast = consultantMessages.value.at(-1)
-  const items = [{ id: 'consultant' as SessionId, title: 'AD有限公司 · 项目顾问', preview: previewText(consultantLast, '请填写项目需求信息。'), time: consultantLast?.time || '刚刚', label: '' }]
+  const items = [{ id: 'consultant' as SessionId, title: 'AD有限公司 · 客服 Agent', preview: previewText(consultantLast, '按固定步骤填写项目需求。'), time: consultantLast?.time || '刚刚', label: '自动服务' }]
   if (matchedDesigner.value) {
     const humanLast = humanMessages.value.at(-1)
     items.push({ id: 'human', title: matchedDesigner.value.nickname, preview: previewText(humanLast, '设计师已接收您的需求摘要。'), time: humanLast?.time || '刚刚', label: '人工服务' })
@@ -363,6 +364,16 @@ async function sendMessage() {
 }
 
 async function prepareSummary() {
+  matchError.value = ''
+  try {
+    const saved = intakeResult.value
+      ? await updateConsultantIntakeDraft(intakeResult.value.intakeId, { ...intake })
+      : await createConsultantIntakeDraft({ ...intake })
+    intakeResult.value = saved
+  } catch (error) {
+    matchError.value = error instanceof Error ? `${error.message}，草稿保存失败，请稍后重试。` : '草稿保存失败，请稍后重试。'
+    return
+  }
   consultantMessages.value = consultantMessages.value.filter(message => message.kind !== 'intake' && message.kind !== 'summary')
   consultantMessages.value.push({
     id: ++messageSequence,
@@ -384,13 +395,20 @@ async function editIntake() {
 }
 
 async function submitIntake() {
-  if (isMatching.value || intakeResult.value) return
+  if (isMatching.value || matchedDesigner.value) return
   isMatching.value = true
   matchError.value = ''
   try {
-    const result = await createConsultantIntake({ ...intake })
+    const draftResult = intakeResult.value
+      ? await updateConsultantIntakeDraft(intakeResult.value.intakeId, { ...intake })
+      : await createConsultantIntakeDraft({ ...intake })
+    intakeResult.value = draftResult
+    const result = await handoffConsultantIntake(draftResult.intakeId)
     intakeResult.value = result
     matchedDesigner.value = result.matchedDesigner
+    if (!result.matchedDesigner || !result.humanChatId) {
+      throw new Error('人工服务会话未成功建立')
+    }
     const greetings = (result.greetingMessages || []).filter(text => text.trim()).slice(0, 2)
     humanMessages.value = greetings.map(text => ({
       id: ++messageSequence,
@@ -407,6 +425,28 @@ async function submitIntake() {
     isMatching.value = false
   }
 }
+
+async function restoreCurrentIntake() {
+  try {
+    const current = await getCurrentConsultantIntake()
+    intakeResult.value = current
+    intake.projectType = current.projectType || ''
+    intake.industry = current.industry || ''
+    intake.requirementDescription = current.requirementDescription || ''
+    intake.budgetRange = current.budgetRange || ''
+    intake.projectCycle = current.projectCycle || ''
+    if (current.matchedDesigner && current.humanChatId) {
+      matchedDesigner.value = current.matchedDesigner
+      await loadHumanMessages()
+    }
+  } catch {
+    // No existing intake is a normal first-visit state.
+  }
+}
+
+onMounted(() => {
+  void restoreCurrentIntake()
+})
 </script>
 
 <style scoped>

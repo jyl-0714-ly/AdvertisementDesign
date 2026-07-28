@@ -13,7 +13,10 @@ import com.advertisementdesign.back.communication.entity.MessageEntity;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
+import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.project.repository.ProjectRepository;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
@@ -21,6 +24,7 @@ import com.advertisementdesign.back.communication.enums.MessageType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +35,7 @@ import java.util.Objects;
 public class ConversationService {
     private final CommunicationRepository communicationRepository;
     private final StorageRepository storageRepository;
+    private final FileService fileService;
     private final ProjectRepository projectRepository;
     private final AuditRepository auditRepository;
     private final ConversationConverter converter;
@@ -58,6 +63,16 @@ public class ConversationService {
                 .toList();
         boolean hasMore = fromIndex > 0;
         return new ConversationModels.MessageCursorPage(records, hasMore);
+    }
+
+    public FileModels.FileAssetVO uploadAttachment(
+            Long conversationId,
+            boolean image,
+            MultipartFile file) {
+        findAllowedConversation(conversationId);
+        return fileService.upload(file, image
+                ? StorageScene.CONVERSATION_IMAGE
+                : StorageScene.CONVERSATION_ATTACHMENT);
     }
 
     @Transactional

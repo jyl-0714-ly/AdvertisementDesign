@@ -43,10 +43,18 @@ public class ProjectController {
         return Result.success(projectService.detail(id));
     }
 
-    @Operation(summary = "新增项目")
+    @Operation(summary = "新增项目（已废弃，请使用咨询创建接口）", deprecated = true)
     @PostMapping
     public Result<ProjectModels.ProjectVO> create(@Valid @org.springframework.web.bind.annotation.RequestBody ProjectModels.CreateProjectRequest request) {
         return Result.success(projectService.create(request));
+    }
+
+    @Operation(summary = "从已完成合同和首付款确认的咨询创建正式项目")
+    @PostMapping("/from-consultation")
+    public Result<ProjectModels.ProjectVO> createFromConsultation(
+            @Valid @org.springframework.web.bind.annotation.RequestBody
+            ProjectModels.CreateProjectFromConsultationRequest request) {
+        return Result.success(projectService.createFromConsultation(request));
     }
 
     @Operation(summary = "更新项目")

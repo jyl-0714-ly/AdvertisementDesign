@@ -6,6 +6,7 @@ import com.advertisementdesign.back.consultation.entity.DesignerProfileEntity;
 import com.advertisementdesign.back.consultation.mapper.ConsultantHumanMessageMapper;
 import com.advertisementdesign.back.consultation.mapper.ConsultantIntakeMapper;
 import com.advertisementdesign.back.consultation.mapper.DesignerProfileMapper;
+import com.advertisementdesign.back.consultation.enums.ConsultantIntakeStatus;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -40,10 +41,34 @@ public class ConsultationRepository {
         return Optional.ofNullable(intakeMapper.selectById(id));
     }
 
+    public Optional<ConsultantIntakeEntity> findIntakeByIdForUpdate(Long id) {
+        return Optional.ofNullable(intakeMapper.selectOne(
+                new LambdaQueryWrapper<ConsultantIntakeEntity>()
+                        .eq(ConsultantIntakeEntity::getId, id)
+                        .last("FOR UPDATE")));
+    }
+
     public Optional<ConsultantIntakeEntity> findIntakeByHumanChatId(String humanChatId) {
         return Optional.ofNullable(intakeMapper.selectOne(
                 new LambdaQueryWrapper<ConsultantIntakeEntity>()
                         .eq(ConsultantIntakeEntity::getHumanChatId, humanChatId)));
+    }
+
+    public Optional<ConsultantIntakeEntity> findCurrentIntakeByCustomer(Long customerId) {
+        return Optional.ofNullable(intakeMapper.selectOne(
+                new LambdaQueryWrapper<ConsultantIntakeEntity>()
+                        .eq(ConsultantIntakeEntity::getCustomerId, customerId)
+                        .orderByDesc(ConsultantIntakeEntity::getUpdatedAt)
+                        .orderByDesc(ConsultantIntakeEntity::getId)
+                        .last("LIMIT 1")));
+    }
+
+    public long countActiveIntakesByDesigner(Long designerId) {
+        return intakeMapper.selectCount(new LambdaQueryWrapper<ConsultantIntakeEntity>()
+                .eq(ConsultantIntakeEntity::getMatchedDesignerId, designerId)
+                .in(ConsultantIntakeEntity::getStatus,
+                        ConsultantIntakeStatus.MATCHED,
+                        ConsultantIntakeStatus.ACCEPTED));
     }
 
     public List<ConsultantIntakeEntity> listIntakesByDesigner(Long designerId) {

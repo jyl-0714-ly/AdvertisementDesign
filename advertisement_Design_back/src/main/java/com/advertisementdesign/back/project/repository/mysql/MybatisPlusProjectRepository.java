@@ -42,6 +42,12 @@ public class MybatisPlusProjectRepository implements ProjectRepository {
     }
 
     @Override
+    public Optional<ProjectEntity> findProjectByConsultantIntakeId(Long consultantIntakeId) {
+        return Optional.ofNullable(projectMapper.selectOne(new LambdaQueryWrapper<ProjectEntity>()
+                .eq(ProjectEntity::getConsultantIntakeId, consultantIntakeId)));
+    }
+
+    @Override
     public ProjectEntity saveProject(ProjectEntity project) {
         LocalDateTime now = LocalDateTime.now();
         if (project.getId() == null) {
@@ -152,6 +158,14 @@ public class MybatisPlusProjectRepository implements ProjectRepository {
     @Override
     public Optional<ProjectFileEntity> findProjectFileById(Long id) {
         return Optional.ofNullable(projectFileMapper.selectById(id));
+    }
+
+    @Override
+    public boolean existsProjectFile(Long projectId, Long fileId) {
+        return projectFileMapper.selectCount(
+                new LambdaQueryWrapper<ProjectFileEntity>()
+                        .eq(ProjectFileEntity::getProjectId, projectId)
+                        .eq(ProjectFileEntity::getFileId, fileId)) > 0;
     }
 
     @Override

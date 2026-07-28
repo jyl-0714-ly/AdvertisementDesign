@@ -24,7 +24,7 @@ export interface UserVO {
 
 export interface LoginResponse { token: string; user: UserVO }
 export interface UpdateUserRequest { nickname?: string | null; avatar?: string | null; phone?: string | null }
-export interface CreateProjectRequest { customerId: number; designerId: number; name: string; description?: string | null }
+export interface CreateProjectFromConsultationRequest { intakeId: number; name: string; description?: string | null }
 export interface UpdateProjectRequest { designerId?: number | null; name?: string | null; description?: string | null; status?: ProjectStatus | null }
 export interface PortfolioCaseRequest {
   title: string
@@ -49,6 +49,7 @@ export interface ProjectVO {
   customerName?: string | null
   designerId: number
   designerName?: string | null
+  consultantIntakeId?: number | null
   currentStage: string
   currentStageName: string
   status: ProjectStatus
@@ -178,6 +179,18 @@ export interface ConsultantReceptionVO {
   matchReason: string
   humanChatId: string
   createdAt: string
+}
+
+export interface ProjectPreparationVO {
+  intakeId: number
+  customerId: number
+  designerId: number
+  projectType: string
+  requirementDescription: string
+  contractConfirmed: boolean
+  contractConfirmedAt?: string | null
+  initialPaymentConfirmed: boolean
+  initialPaymentConfirmedAt?: string | null
 }
 
 export interface ConsultantHumanMessageVO {

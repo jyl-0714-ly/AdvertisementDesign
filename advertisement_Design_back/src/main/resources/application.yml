@@ -3,14 +3,22 @@ server:
 
 spring:
   config:
+    # 本机存在 application-local.yml 时自动加载；
+    # 服务器不存在该文件时也不会报“文件不存在”
     import: optional:classpath:application-local.yml
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 200MB
   application:
     name: advertisement-design-back
+
   datasource:
-    url: jdbc:mysql://localhost:3306/advertisement_design?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: ${DB_URL:jdbc:mysql://localhost:3306/advertisement_design?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   mail:
     host: ${MAIL_HOST:smtp.qq.com}
     port: ${MAIL_PORT:465}
@@ -23,13 +31,32 @@ spring:
           auth: true
           ssl:
             enable: true
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
 app:
   jwt:
-    secret: ${JWT_SECRET:change-this-secret-in-local-config}
-    expire-seconds: 86400
+    secret: ${JWT_SECRET:}
+    expire-seconds: ${JWT_EXPIRE_SECONDS:86400}
+
   mail:
     from: ${MAIL_FROM:}
+
+  storage:
+    # 未提供本地覆盖配置时，默认使用本地文件存储
+    provider: ${STORAGE_PROVIDER:LOCAL}
+    local-root: ${STORAGE_LOCAL_ROOT:uploads}
+    max-file-size: ${STORAGE_MAX_FILE_SIZE:20971520}
+
+    oss:
+      enabled: ${OSS_ENABLED:false}
+      endpoint: ${OSS_ENDPOINT:}
+      region: ${OSS_REGION:}
+      access-key-id: ${OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+      public-bucket: ${OSS_PUBLIC_BUCKET:}
+      private-bucket: ${OSS_PRIVATE_BUCKET:}
+      public-domain: ${OSS_PUBLIC_DOMAIN:}
+      signed-url-expiration: ${OSS_SIGNED_URL_EXPIRATION:15m}

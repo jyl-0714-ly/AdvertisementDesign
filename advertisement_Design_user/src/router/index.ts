@@ -10,9 +10,12 @@ import HomeView from '@/views/HomeView.vue'
 import CaseDetailView from '@/views/CaseDetailView.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
 import ConsultantView from '@/views/ConsultantView.vue'
+import ServiceDetailView from '@/views/ServiceDetailView.vue'
+import { sanitizeInternalRedirect } from '@/utils/safeRedirect'
 
 const routes = [
   { path: '/', component: HomeView, meta: { public: true } },
+  { path: '/services/:slug', component: ServiceDetailView, meta: { public: true } },
   { path: '/cases/:id', component: CaseDetailView, meta: { public: true } },
   { path: '/login', component: LoginView, meta: { public: true, login: true } },
   {
@@ -47,7 +50,7 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.public) {
     if (to.meta.login && auth.isLoggedIn) {
-      return '/consultant'
+      return sanitizeInternalRedirect(to.query.redirect)
     }
     return true
   }

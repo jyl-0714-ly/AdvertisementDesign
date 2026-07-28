@@ -22,6 +22,7 @@ public class ProjectEntity {
     private String name;
     private Long customerId;
     private Long designerId;
+    private Long consultantIntakeId;
     private String description;
     private String currentStage;
     private ProjectStatus status;

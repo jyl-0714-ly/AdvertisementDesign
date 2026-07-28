@@ -9,6 +9,21 @@
         <div class="summary-grid"><div><span>行业</span><strong>{{ reception.industry }}</strong></div><div><span>预算</span><strong>{{ reception.budgetRange }}</strong></div><div><span>项目周期</span><strong>{{ reception.projectCycle }}</strong></div></div>
         <div class="description"><span>需求摘要</span><p>{{ reception.requirementDescription }}</p></div>
         <div class="match-reason"><span>匹配依据</span><p>{{ reception.matchReason }}</p></div>
+        <section v-if="reception.status === 'ACCEPTED'" class="project-preparation">
+          <div class="preparation-title"><span>正式项目准备</span><strong>合同与首付款确认后方可建项</strong></div>
+          <button type="button" :disabled="preparation?.contractConfirmed || confirmingContract" @click="confirmContract">
+            {{ preparation?.contractConfirmed ? '合同已确认' : confirmingContract ? '确认中…' : '确认合同已签署' }}
+          </button>
+          <button type="button" :disabled="preparation?.initialPaymentConfirmed || confirmingPayment" @click="confirmPayment">
+            {{ preparation?.initialPaymentConfirmed ? '首付款已确认' : confirmingPayment ? '确认中…' : '确认已收到首付款' }}
+          </button>
+          <label>项目名称<input v-model="projectName" maxlength="128" placeholder="例如：品牌视觉升级项目" /></label>
+          <label>项目说明<textarea v-model="projectDescription" rows="3" maxlength="1000" placeholder="补充正式项目范围与交付约定"></textarea></label>
+          <button class="create-project" type="button" :disabled="!canCreateProject || creatingProject" @click="createFormalProject">
+            {{ creatingProject ? '正在创建…' : '创建正式项目' }}
+          </button>
+          <p v-if="preparationError" class="preparation-error">{{ preparationError }}</p>
+        </section>
       </div>
       <div v-else-if="loading" class="side-state">正在加载需求…</div>
     </aside>
@@ -36,10 +51,19 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getConsultantReception, listConsultantHumanMessages, sendConsultantHumanMessage } from '@/api'
-import type { ConsultantHumanMessageVO, ConsultantReceptionVO } from '@/models'
+import {
+  confirmConsultationContract,
+  confirmConsultationInitialPayment,
+  createProjectFromConsultation,
+  getConsultantReception,
+  getProjectPreparation,
+  listConsultantHumanMessages,
+  sendConsultantHumanMessage
+} from '@/api'
+import type { ConsultantHumanMessageVO, ConsultantReceptionVO, ProjectPreparationVO } from '@/models'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +74,18 @@ const loading = ref(true)
 const sending = ref(false)
 const error = ref('')
 const messageList = ref<HTMLElement | null>(null)
+const preparation = ref<ProjectPreparationVO | null>(null)
+const projectName = ref('')
+const projectDescription = ref('')
+const preparationError = ref('')
+const confirmingContract = ref(false)
+const confirmingPayment = ref(false)
+const creatingProject = ref(false)
+const canCreateProject = computed(() => Boolean(
+  preparation.value?.contractConfirmed
+  && preparation.value?.initialPaymentConfirmed
+  && projectName.value.trim()
+))
 
 function formatTime(value: string) {
   const date = new Date(value)
@@ -63,9 +99,42 @@ async function initialize() {
   try {
     reception.value = await getConsultantReception(intakeId)
     messages.value = await listConsultantHumanMessages(reception.value.humanChatId)
+    if (reception.value.status === 'ACCEPTED') {
+      preparation.value = await getProjectPreparation(intakeId)
+      projectName.value ||= `${reception.value.projectType}项目`
+      projectDescription.value ||= reception.value.requirementDescription
+    }
     await scrollLatest()
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '客户会话加载失败' }
   finally { loading.value = false }
+}
+async function confirmContract() {
+  if (!reception.value || confirmingContract.value) return
+  confirmingContract.value = true; preparationError.value = ''
+  try { preparation.value = await confirmConsultationContract(reception.value.intakeId); ElMessage.success('合同签署状态已确认') }
+  catch (cause) { preparationError.value = cause instanceof Error ? cause.message : '合同确认失败' }
+  finally { confirmingContract.value = false }
+}
+async function confirmPayment() {
+  if (!reception.value || confirmingPayment.value) return
+  confirmingPayment.value = true; preparationError.value = ''
+  try { preparation.value = await confirmConsultationInitialPayment(reception.value.intakeId); ElMessage.success('首付款状态已确认') }
+  catch (cause) { preparationError.value = cause instanceof Error ? cause.message : '首付款确认失败' }
+  finally { confirmingPayment.value = false }
+}
+async function createFormalProject() {
+  if (!reception.value || !canCreateProject.value || creatingProject.value) return
+  creatingProject.value = true; preparationError.value = ''
+  try {
+    const project = await createProjectFromConsultation({
+      intakeId: reception.value.intakeId,
+      name: projectName.value.trim(),
+      description: projectDescription.value.trim() || null
+    })
+    ElMessage.success('正式项目创建成功')
+    await router.push(`/projects/${project.id}`)
+  } catch (cause) { preparationError.value = cause instanceof Error ? cause.message : '正式项目创建失败' }
+  finally { creatingProject.value = false }
 }
 async function send() {
   const content = draft.value.trim()
@@ -88,6 +157,7 @@ onMounted(initialize)
 .score-line { margin: 28px 0; padding: 13px 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--s-border); border-bottom: 1px solid var(--s-border); color: var(--s-muted); font-size: 12px; }.score-line strong { color: var(--s-accent); font-size: 18px; }
 .summary-block { display: grid; gap: 5px; }.summary-block strong { font-size: 18px; }.summary-grid { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 12px; }.summary-grid div:last-child { grid-column: 1 / -1; }.summary-grid div { display: grid; gap: 5px; }.summary-grid strong { font-size: 13px; }
 .description,.match-reason { margin-top: 26px; }.description p,.match-reason p { margin: 8px 0 0; color: #3e4856; font-size: 13px; line-height: 1.75; }.match-reason { padding: 14px; border-radius: 10px; background: #fff; }.match-reason p { font-size: 12px; }.side-state { margin-top: 40px; color: var(--s-muted); font-size: 13px; }
+.project-preparation { margin-top: 22px; padding: 16px; display: grid; gap: 10px; border: 1px solid var(--s-border); border-radius: 12px; background: #fff; }.preparation-title { display: grid; gap: 4px; margin-bottom: 4px; }.preparation-title span { color: var(--s-muted); font-size: 11px; }.preparation-title strong { font-size: 13px; }.project-preparation button { padding: 9px 11px; border: 1px solid #d9dde3; border-radius: 8px; background: #f7f8f9; color: #303947; font: inherit; font-size: 12px; cursor: pointer; }.project-preparation button:disabled { opacity: .58; cursor: default; }.project-preparation label { display: grid; gap: 5px; color: var(--s-muted); font-size: 11px; }.project-preparation input,.project-preparation textarea { width: 100%; padding: 9px 10px; box-sizing: border-box; border: 1px solid #d9dde3; border-radius: 8px; color: var(--s-ink); font: inherit; font-size: 12px; resize: vertical; }.project-preparation .create-project { border-color: var(--s-accent); background: var(--s-accent); color: #fff; font-weight: 600; }.preparation-error { margin: 0; color: #a23b3b; font-size: 11px; line-height: 1.5; }
 .conversation-panel { min-width: 0; min-height: 0; display: grid; grid-template-rows: 66px minmax(0, 1fr) auto; }.conversation-head { padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--s-border); }.conversation-head > div { display: flex; align-items: center; gap: 10px; }.conversation-head div div { display: grid; gap: 2px; }.conversation-head strong { font-size: 14px; }.conversation-head small { color: var(--s-muted); font-size: 11px; }.online-dot { width: 8px; height: 8px; border-radius: 50%; background: #20a06b; box-shadow: 0 0 0 4px rgba(32,160,107,.1); }.secure-label { padding: 6px 9px; border-radius: 7px; background: #f6f7f8; color: var(--s-muted); font-size: 11px; }
 .message-list { min-height: 0; padding: 28px max(30px, calc((100% - 760px)/2)); overflow-y: auto; background: #fff; }.message-row { margin-bottom: 25px; display: flex; gap: 11px; align-items: flex-start; }.message-row.mine { flex-direction: row-reverse; }.message-avatar { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px; background: #edf0f3; color: #424d5c; font-size: 11px; font-weight: 650; }.mine .message-avatar { background: #202631; color: white; }.message-body { max-width: min(72%, 610px); }.message-meta { margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }.mine .message-meta { justify-content: flex-end; }.message-meta strong { font-size: 11px; }.message-meta time { color: #9aa2ae; font-size: 10px; }.message-body p { margin: 0; padding: 11px 14px; border-radius: 4px 12px 12px 12px; background: #f3f4f6; color: #252d38; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }.mine .message-body p { border-radius: 12px 4px 12px 12px; background: #242a35; color: #fff; }.message-state { height: 100%; min-height: 220px; display: grid; place-content: center; justify-items: center; gap: 7px; color: var(--s-muted); font-size: 12px; }.message-state strong { color: var(--s-ink); font-size: 15px; }.message-error { margin-bottom: 18px; padding: 10px 12px; border-radius: 8px; background: #fff3f1; color: #9f3a3a; font-size: 12px; }.message-error button { border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }
 .composer { margin: 0 max(24px, calc((100% - 780px)/2)) 22px; border: 1px solid rgba(15,23,42,.12); border-radius: 12px; background: #fff; box-shadow: 0 10px 26px rgba(15,23,42,.07); overflow: hidden; }.composer textarea { width: 100%; min-height: 78px; padding: 14px 16px 8px; resize: none; border: 0; outline: none; box-sizing: border-box; color: var(--s-ink); font: inherit; font-size: 14px; line-height: 1.55; }.composer textarea::placeholder { color: #a0a7b1; }.composer-footer { padding: 8px 10px 10px 15px; display: flex; justify-content: space-between; align-items: center; }.composer-footer span { color: #a0a7b1; font-size: 10px; }.composer-footer button { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--s-accent); color: white; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }.composer-footer button:disabled { opacity: .45; cursor: default; }
