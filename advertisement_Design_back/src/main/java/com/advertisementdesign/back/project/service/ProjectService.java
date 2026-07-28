@@ -8,6 +8,8 @@ import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
+import com.advertisementdesign.back.communication.enums.ConversationStatus;
+import com.advertisementdesign.back.communication.enums.ConversationType;
 import com.advertisementdesign.back.communication.enums.MessageSenderRole;
 import com.advertisementdesign.back.consultation.model.ProjectPreparationModels;
 import com.advertisementdesign.back.consultation.service.ProjectPreparationService;
@@ -87,11 +89,13 @@ public class ProjectService {
                 .name(request.name().trim())
                 .customerId(preparation.customerId())
                 .designerId(preparation.designerId())
+                .initialDesignerId(preparation.designerId())
                 .consultantIntakeId(preparation.intakeId())
                 .description(request.description())
                 .currentStage("REQUIREMENT_GUIDE")
                 .status(ProjectStatus.IN_PROGRESS)
                 .progress(0)
+                .startedAt(LocalDateTime.now())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -143,6 +147,7 @@ public class ProjectService {
         ensureDesigner();
         ProjectEntity project = findAllowedProject(id);
         project.setStatus(ProjectStatus.CANCELLED);
+        project.setCancelledAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
         projectRepository.saveProject(project);
         return true;
@@ -174,9 +179,12 @@ public class ProjectService {
     private void ensureConversation(ProjectEntity project) {
         communicationRepository.findConversationByProjectId(project.getId()).orElseGet(() ->
                 communicationRepository.saveConversation(ConversationEntity.builder()
+                        .consultantIntakeId(project.getConsultantIntakeId())
                         .projectId(project.getId())
                         .customerId(project.getCustomerId())
                         .designerId(project.getDesignerId())
+                        .conversationType(ConversationType.PROJECT)
+                        .status(ConversationStatus.ACTIVE)
                         .lastMessage(null)
                         .lastMessageAt(null)
                         .createdAt(LocalDateTime.now())
@@ -204,6 +212,7 @@ public class ProjectService {
                         .stageCode(stage[0])
                         .stageName(stage[1])
                         .sortOrder(sortOrder)
+                        .isRequired(!"AFTER_SALE_REPURCHASE".equals(stage[0]))
                         .status(ProjectStageStatus.TODO)
                         .reachedAt(null)
                         .updatedAt(LocalDateTime.now())

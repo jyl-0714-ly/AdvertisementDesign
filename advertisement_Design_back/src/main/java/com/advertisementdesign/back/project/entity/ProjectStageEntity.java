@@ -23,6 +23,7 @@ public class ProjectStageEntity {
     private String stageCode;
     private String stageName;
     private Integer sortOrder;
+    private Boolean isRequired;
     private ProjectStageStatus status;
     private LocalDateTime reachedAt;
     private LocalDateTime updatedAt;

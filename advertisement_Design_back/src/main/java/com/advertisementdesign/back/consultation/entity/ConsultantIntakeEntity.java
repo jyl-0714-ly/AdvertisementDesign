@@ -30,6 +30,13 @@ public class ConsultantIntakeEntity {
     private String projectCycle;
     private ConsultantIntakeStatus status;
     private Long matchedDesignerId;
+    private Long initialDesignerId;
+    private LocalDateTime designerAssignedAt;
+    private LocalDateTime designerAcknowledgedAt;
+    private Integer matchAttemptCount;
+    private LocalDateTime handoffConfirmedAt;
+    private LocalDateTime closedAt;
+    private String closeReason;
     private LocalDateTime contractConfirmedAt;
     private LocalDateTime initialPaymentConfirmedAt;
     private String humanChatId;

@@ -22,11 +22,17 @@ public class ProjectEntity {
     private String name;
     private Long customerId;
     private Long designerId;
+    private Long initialDesignerId;
     private Long consultantIntakeId;
+    private Long confirmedRequirementVersionId;
     private String description;
     private String currentStage;
     private ProjectStatus status;
     private Integer progress;
+    private LocalDateTime preparedAt;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
+    private LocalDateTime cancelledAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

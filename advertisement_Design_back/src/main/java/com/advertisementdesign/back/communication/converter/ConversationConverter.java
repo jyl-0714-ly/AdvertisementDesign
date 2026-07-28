@@ -24,7 +24,9 @@ public class ConversationConverter {
     public ConversationModels.ConversationVO toConversationVO(
             ConversationEntity entity,
             int unreadCount) {
-        ProjectEntity project = projectRepository.findProjectById(entity.getProjectId()).orElse(null);
+        ProjectEntity project = entity.getProjectId() == null
+                ? null
+                : projectRepository.findProjectById(entity.getProjectId()).orElse(null);
         String customerName = identityService.findById(entity.getCustomerId())
                 .map(IdentityService.UserProfile::nickname).orElse(null);
         String designerName = identityService.findById(entity.getDesignerId())
