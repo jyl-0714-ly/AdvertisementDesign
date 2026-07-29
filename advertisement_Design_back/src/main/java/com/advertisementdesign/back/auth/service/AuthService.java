@@ -5,24 +5,21 @@ import com.advertisementdesign.back.auth.security.JwtTokenService;
 import com.advertisementdesign.back.auth.vo.AuthResponses;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.common.web.AuthContext;
-import com.advertisementdesign.back.common.web.CurrentUser;
 import com.advertisementdesign.back.identity.converter.UserConverter;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
+import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.identity.service.IdentityService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserAccount;
-import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -33,12 +30,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final EmailCodeMailService emailCodeMailService;
-    private final Map<String, EmailCode> emailCodes = new ConcurrentHashMap<>();
-    private final Map<String, LocalDateTime> emailCodeLastSentAt = new ConcurrentHashMap<>();
+    private final EmailVerificationCodeStore emailCodeStore;
+    private final CurrentActorProvider currentActorProvider;
     private static final Pattern CUSTOMER_EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9._%+-]+@(qq\\.com|163\\.com|126\\.com|yeah\\.net)$", Pattern.CASE_INSENSITIVE);
-
-    private record EmailCode(String code, LocalDateTime expiresAt) {}
 
     public AuthResponses.LoginResponse login(AuthRequests.LoginRequest request) {
         UserAccount user = findEnabledUser(request.email());
@@ -63,24 +58,18 @@ public class AuthService {
             }
         }
         LocalDateTime now = LocalDateTime.now();
-        synchronized (emailCodeLastSentAt) {
-            LocalDateTime lastSentAt = emailCodeLastSentAt.get(normalizedEmail);
-            if (lastSentAt != null && lastSentAt.plusSeconds(60).isAfter(now)) {
-                long remaining = java.time.Duration.between(now, lastSentAt.plusSeconds(60)).toSeconds() + 1;
-                throw new ApiException(400, "请在 " + remaining + " 秒后重新发送");
-            }
-            emailCodeLastSentAt.put(normalizedEmail, now);
+        Duration remaining = emailCodeStore.reserveSend(normalizedEmail, now, Duration.ofSeconds(60));
+        if (!remaining.isZero()) {
+            throw new ApiException(400, "请在 " + (remaining.toSeconds() + 1) + " 秒后重新发送");
         }
         String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
         try {
             emailCodeMailService.sendCode(normalizedEmail, code);
         } catch (RuntimeException ex) {
-            synchronized (emailCodeLastSentAt) {
-                if (now.equals(emailCodeLastSentAt.get(normalizedEmail))) emailCodeLastSentAt.remove(normalizedEmail);
-            }
+            emailCodeStore.cancelSend(normalizedEmail, now);
             throw ex;
         }
-        emailCodes.put(codeKey(normalizedEmail, request.purpose()), new EmailCode(code, now.plusSeconds(60)));
+        emailCodeStore.save(normalizedEmail, request.purpose(), code, now.plusSeconds(60));
         return new AuthResponses.SendEmailCodeResponse(60);
     }
 
@@ -105,9 +94,7 @@ public class AuthService {
 
     private AuthResponses.LoginResponse createLoginResponse(UserAccount user) {
         UserAccount updated = identityService.recordLogin(user.id());
-        CurrentUser currentUser = CurrentUser.builder().id(updated.id()).email(updated.email())
-                .nickname(updated.nickname()).role(updated.role()).build();
-        return new AuthResponses.LoginResponse(jwtTokenService.createToken(currentUser), toUserVO(updated));
+        return new AuthResponses.LoginResponse(jwtTokenService.createToken(updated.id()), toUserVO(updated));
     }
 
     @Transactional
@@ -128,14 +115,14 @@ public class AuthService {
     }
 
     public AuthResponses.UserVO updateMe(com.advertisementdesign.back.identity.dto.UpdateUserRequest request) {
-        CurrentUser currentUser = AuthContext.currentUser();
-        return toUserVO(identityService.updateProfile(currentUser.getId(), request.nickname(), request.avatar(), request.phone()));
+        Long userId = currentActorProvider.requireCurrentActor().actor().actorId();
+        return toUserVO(identityService.updateProfile(userId, request.nickname(), request.avatarFileId(), request.phone()));
     }
 
     public boolean logout() { return true; }
 
     private UserAccount currentUserAccount() {
-        return identityService.findByEmail(AuthContext.currentUser().getEmail())
+        return identityService.findAccountById(currentActorProvider.requireCurrentActor().actor().actorId())
                 .orElseThrow(() -> new ApiException(ApiErrorCode.UNAUTHORIZED));
     }
 
@@ -146,25 +133,13 @@ public class AuthService {
     }
 
     private void verifyEmailCode(String email, AuthRequests.EmailCodePurpose purpose, String code) {
-        String key = codeKey(normalizeEmail(email), purpose);
-        EmailCode stored = emailCodes.get(key);
-        if (stored == null || stored.expiresAt().isBefore(LocalDateTime.now())) {
-            emailCodes.remove(key);
-            throw new ApiException(400, "验证码已过期或无效，请重新获取");
+        if (!emailCodeStore.consume(normalizeEmail(email), purpose, code, LocalDateTime.now())) {
+            throw new ApiException(400, "验证码已过期、无效或错误，请重新获取");
         }
-        if (!stored.code().equals(code)) throw new ApiException(400, "验证码错误");
-        emailCodes.remove(key);
-    }
-
-    public UserProfile currentUserProfile() {
-        CurrentUser currentUser = AuthContext.currentUser();
-        return identityService.findById(currentUser.getId())
-                .orElseThrow(() -> new ApiException(ApiErrorCode.UNAUTHORIZED));
     }
 
     private Optional<UserAccount> findUserByEmail(String email) { return identityService.findByEmail(normalizeEmail(email)); }
     private String normalizeEmail(String email) { return email.trim().toLowerCase(); }
-    private String codeKey(String email, AuthRequests.EmailCodePurpose purpose) { return purpose.name() + ":" + email; }
     private void validateCustomerEmail(String email) {
         if (!CUSTOMER_EMAIL_PATTERN.matcher(normalizeEmail(email)).matches()) throw new ApiException(400, "仅支持 QQ 邮箱和网易邮箱（163、126、yeah.net）");
     }

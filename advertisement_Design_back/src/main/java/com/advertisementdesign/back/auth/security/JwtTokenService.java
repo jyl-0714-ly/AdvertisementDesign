@@ -1,7 +1,5 @@
 package com.advertisementdesign.back.auth.security;
 
-import com.advertisementdesign.back.common.web.CurrentUser;
-import com.advertisementdesign.back.identity.enums.UserRole;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -22,17 +20,15 @@ public class JwtTokenService {
         this.expireSeconds = expireSeconds;
     }
 
-    public String createToken(CurrentUser user) {
+    public String createToken(Long userId) {
         Date now = new Date();
         Date expireAt = new Date(now.getTime() + expireSeconds * 1000);
-        return Jwts.builder().subject(String.valueOf(user.getId())).claim("email", user.getEmail())
-                .claim("nickname", user.getNickname()).claim("role", user.getRole().name())
+        return Jwts.builder().subject(String.valueOf(userId))
                 .issuedAt(now).expiration(expireAt).signWith(secretKey, SignatureAlgorithm.HS256).compact();
     }
 
-    public CurrentUser parseToken(String token) {
+    public Long parseUserId(String token) {
         var claims = Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
-        return CurrentUser.builder().id(Long.valueOf(claims.getSubject())).email(claims.get("email", String.class))
-                .nickname(claims.get("nickname", String.class)).role(UserRole.valueOf(claims.get("role", String.class))).build();
+        return Long.valueOf(claims.getSubject());
     }
 }

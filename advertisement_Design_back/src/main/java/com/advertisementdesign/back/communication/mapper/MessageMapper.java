@@ -12,9 +12,8 @@ public interface MessageMapper extends BaseMapper<MessageEntity> {
             SELECT *
             FROM message
             WHERE conversation_id = #{conversationId}
-              AND is_deleted = 0
-            ORDER BY created_at DESC, id DESC
+            ORDER BY sent_at DESC, id DESC
             LIMIT 1
             """)
-    MessageEntity selectLatestActiveByConversationId(@Param("conversationId") Long conversationId);
+    MessageEntity selectLatestByConversationId(@Param("conversationId") Long conversationId);
 }

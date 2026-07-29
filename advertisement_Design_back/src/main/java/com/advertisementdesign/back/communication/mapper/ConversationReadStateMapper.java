@@ -20,8 +20,8 @@ public interface ConversationReadStateMapper extends BaseMapper<ConversationRead
                   FROM message
                   WHERE conversation_id = #{conversationId}
                     AND id > #{lastReadMessageId}
-                    AND is_deleted = 0
-                    AND (sender_id IS NULL OR sender_id <> #{userId})),
+                    AND NOT (actor_type IN ('CUSTOMER_USER', 'DESIGNER_USER', 'ADMIN_USER')
+                             AND actor_id = #{userId})),
                  #{updatedAt})
             ON DUPLICATE KEY UPDATE
                 unread_count = IF(

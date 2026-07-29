@@ -5,6 +5,7 @@ import com.advertisementdesign.back.auth.security.JwtTokenService;
 import com.advertisementdesign.back.auth.vo.AuthResponses;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
+import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.identity.service.IdentityService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserAccount;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,18 +35,24 @@ class AuthServiceTest {
     private JwtTokenService jwtTokenService;
     @Mock
     private EmailCodeMailService emailCodeMailService;
+    @Mock
+    private CurrentActorProvider currentActorProvider;
 
     private AuthService authService;
     private BCryptPasswordEncoder passwordEncoder;
+    private TemporarySingleInstanceEmailVerificationCodeStore emailCodeStore;
 
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
+        emailCodeStore = new TemporarySingleInstanceEmailVerificationCodeStore();
         authService = new AuthService(
                 identityService,
                 passwordEncoder,
                 jwtTokenService,
-                emailCodeMailService
+                emailCodeMailService,
+                emailCodeStore,
+                currentActorProvider
         );
     }
 

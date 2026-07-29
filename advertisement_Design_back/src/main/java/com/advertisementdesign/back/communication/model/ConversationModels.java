@@ -1,95 +1,113 @@
 package com.advertisementdesign.back.communication.model;
 
 import com.advertisementdesign.back.communication.enums.ConversationStatus;
-import com.advertisementdesign.back.communication.enums.ConversationType;
-import com.advertisementdesign.back.communication.enums.MessageSenderRole;
+import com.advertisementdesign.back.communication.enums.MessageSendSource;
 import com.advertisementdesign.back.communication.enums.MessageType;
+import com.advertisementdesign.back.identity.model.ActorRef;
+import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
-@Schema(description = "会话相关模型")
+@Schema(description = "项目会话公开契约")
 public final class ConversationModels {
+    public static final String SERVICE_TEAM_IDENTITY = "项目服务团队";
+
     private ConversationModels() {
     }
 
-    @Schema(description = "会话视图")
-    public record ConversationVO(
+    public record ConversationView(
             Long id,
             Long projectId,
-            String projectName,
-            ConversationType conversationType,
             ConversationStatus status,
-            Long customerId,
-            String customerName,
-            Long designerId,
-            String designerName,
-            String lastMessage,
-            String lastMessageAt,
-            Integer unreadCount
+            Long lastMessageId,
+            String lastMessagePreview,
+            LocalDateTime lastMessageAt,
+            Long version
     ) {
     }
 
-    @Schema(description = "发送消息请求")
-    public record SendMessageRequest(
-            @NotNull MessageType messageType,
-            String content,
-            List<Long> fileIds,
-            String clientMessageId
-    ) {
-    }
-
-    @Schema(description = "消息视图")
-    public record MessageVO(
+    /** Customer-facing view intentionally excludes real internal actor identity. */
+    public record CustomerMessageView(
             Long id,
             Long conversationId,
-            Long senderId,
-            MessageSenderRole senderRole,
-            String senderName,
             MessageType messageType,
             String content,
-            List<FileAssetVO> files,
+            String displayIdentity,
             Long replyToMessageId,
-            Boolean isDeleted,
-            String createdAt,
-            String updatedAt
+            Long correctionMessageId,
+            List<AttachmentView> attachments,
+            LocalDateTime sentAt
     ) {
+        public CustomerMessageView {
+            attachments = attachments == null ? List.of() : List.copyOf(attachments);
+        }
     }
 
-    @Schema(description = "消息中的文件视图")
-    public record FileAssetVO(
+    public record InternalMessageView(
             Long id,
-            String originalName,
-            String storageName,
-            String storageProvider,
-            String bucketName,
-            String objectKey,
-            String url,
-            String mimeType,
-            Long fileSize,
-            String fileHash,
-            String status,
-            String createdAt,
-            String updatedAt
+            Long conversationId,
+            MessageType messageType,
+            String content,
+            String customerDisplayIdentity,
+            ActorRef actor,
+            MessageSendSource sendSource,
+            String authorizationBasis,
+            Long replyToMessageId,
+            Long correctionMessageId,
+            String clientMessageId,
+            List<AttachmentView> attachments,
+            LocalDateTime sentAt
     ) {
+        public InternalMessageView {
+            attachments = attachments == null ? List.of() : List.copyOf(attachments);
+        }
     }
 
-    @Schema(description = "会话已读状态视图")
-    public record ConversationReadStateVO(
+    public record AttachmentView(Long id, Long fileAssetId, Integer displayOrder, LocalDateTime createdAt) {
+    }
+
+    public record ReadStateView(
             Long conversationId,
             Long userId,
             Long lastReadMessageId,
-            String lastReadAt,
-            Integer unreadCount
+            LocalDateTime lastReadAt,
+            Integer unreadCount,
+            Long version
     ) {
     }
 
-    @Schema(description = "标记已读请求")
-    public record MarkReadRequest(@NotNull Long lastReadMessageId) {
+    public record CurrentUserAppendCommand(
+            Long projectId,
+            MessageType messageType,
+            String content,
+            Long replyToMessageId,
+            Long correctionMessageId,
+            String clientMessageId,
+            List<Long> fileAssetIds
+    ) {
+        public CurrentUserAppendCommand {
+            fileAssetIds = fileAssetIds == null ? List.of() : List.copyOf(fileAssetIds);
+        }
     }
 
-    @Schema(description = "消息游标分页")
-    public record MessageCursorPage(List<MessageVO> records, Boolean hasMore) {
+    public record TrustedInternalAppendCommand(
+            Long projectId,
+            MessageType messageType,
+            String content,
+            String customerDisplayIdentity,
+            ActorRef actor,
+            MessageSendSource sendSource,
+            ProjectAuthorizationService.AuthorizationBasis authorizationBasis,
+            Long replyToMessageId,
+            Long correctionMessageId,
+            String clientMessageId,
+            List<Long> fileAssetIds,
+            LocalDateTime sentAt
+    ) {
+        public TrustedInternalAppendCommand {
+            fileAssetIds = fileAssetIds == null ? List.of() : List.copyOf(fileAssetIds);
+        }
     }
 }

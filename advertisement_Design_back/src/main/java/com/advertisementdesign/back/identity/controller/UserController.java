@@ -1,7 +1,7 @@
 package com.advertisementdesign.back.identity.controller;
 
 import com.advertisementdesign.back.common.api.Result;
-import com.advertisementdesign.back.common.web.AuthContext;
+import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.identity.converter.UserConverter;
 import com.advertisementdesign.back.identity.dto.UpdateUserRequest;
 import com.advertisementdesign.back.identity.service.IdentityService;
@@ -22,11 +22,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class UserController {
     private final IdentityService identityService;
+    private final CurrentActorProvider currentActorProvider;
 
     @Operation(summary = "更新当前用户资料")
     @PutMapping("/me")
     public Result<UserVO> updateMe(@Valid @RequestBody UpdateUserRequest request) {
-        UserAccount user = identityService.updateProfile(AuthContext.currentUser().getId(), request.nickname(), request.avatar(), request.phone());
+        UserAccount user = identityService.updateProfile(currentActorProvider.requireCurrentActor().actor().actorId(), request.nickname(), request.avatarFileId(), request.phone());
         return Result.success(UserConverter.toVO(user));
     }
 }

@@ -1,9 +1,8 @@
 package com.advertisementdesign.back.project.enums;
 
 public enum ProjectStatus {
-    PROPOSAL_PREPARING,
-    IN_PROGRESS,
-    COMPLETED,
+    ACTIVE,
     PAUSED,
-    CANCELLED
+    COMPLETED,
+    TERMINATED
 }

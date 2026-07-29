@@ -1,64 +1,55 @@
 package com.advertisementdesign.back.project.controller;
 
-import com.advertisementdesign.back.project.model.ProjectModels;
-import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.api.Result;
-import com.advertisementdesign.back.project.service.ProjectService;
+import com.advertisementdesign.back.project.model.ProjectModels;
+import com.advertisementdesign.back.project.service.ProjectQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "Project", description = "项目接口")
+@Tag(name = "Project", description = "项目查询接口")
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
 public class ProjectController {
-    private final ProjectService projectService;
+    private final ProjectQueryService projectQueryService;
 
-    @Operation(summary = "当前用户项目列表")
+    @Operation(summary = "当前用户可见项目摘要")
     @GetMapping
-    public Result<PageResult<ProjectModels.ProjectVO>> list(
+    public Result<List<ProjectModels.ProjectSummaryView>> list(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String currentStage,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "10") long size) {
-        return Result.success(projectService.list(status, currentStage, keyword, page, size));
+            @RequestParam(required = false) String keyword) {
+        return Result.success(projectQueryService.listAuthorizedSummaries(status, keyword));
     }
 
-    @Operation(summary = "项目详情")
-    @GetMapping("/{id}")
-    public Result<ProjectModels.ProjectVO> detail(@PathVariable Long id) {
-        return Result.success(projectService.detail(id));
+    @Operation(summary = "项目完整详情")
+    @GetMapping("/{projectId}")
+    public Result<ProjectModels.ProjectFullDetailView> detail(@PathVariable Long projectId) {
+        return Result.success(projectQueryService.requireFullDetail(projectId));
     }
 
-    @Operation(summary = "更新项目")
-    @PutMapping("/{id}")
-    public Result<ProjectModels.ProjectVO> update(
-            @PathVariable Long id,
-            @Valid @org.springframework.web.bind.annotation.RequestBody ProjectModels.UpdateProjectRequest request) {
-        return Result.success(projectService.update(id, request));
+    @Operation(summary = "项目有效客户成员")
+    @GetMapping("/{projectId}/customer-members")
+    public Result<List<ProjectModels.CustomerMemberView>> customerMembers(@PathVariable Long projectId) {
+        return Result.success(projectQueryService.listActiveCustomerMembers(projectId));
     }
 
-    @Operation(summary = "删除或取消项目")
-    @DeleteMapping("/{id}")
-    public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.success(projectService.delete(id));
+    @Operation(summary = "项目当前主负责设计师分配")
+    @GetMapping("/{projectId}/assignments/current-responsible")
+    public Result<ProjectModels.AssignmentView> currentResponsible(@PathVariable Long projectId) {
+        return Result.success(projectQueryService.currentResponsibleDesigner(projectId).orElse(null));
     }
 
-    @Operation(summary = "项目阶段列表")
-    @GetMapping("/{projectId}/stages")
-    public Result<List<ProjectModels.ProjectStageVO>> stages(@PathVariable Long projectId) {
-        return Result.success(projectService.stages(projectId));
+    @Operation(summary = "项目设计师分配历史")
+    @GetMapping("/{projectId}/assignments")
+    public Result<List<ProjectModels.AssignmentView>> assignmentHistory(@PathVariable Long projectId) {
+        return Result.success(projectQueryService.assignmentHistory(projectId));
     }
 }

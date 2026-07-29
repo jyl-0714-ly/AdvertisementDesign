@@ -1,7 +1,7 @@
 package com.advertisementdesign.back.common.storage.service;
 
 import com.advertisementdesign.back.common.storage.converter.FileConverter;
-import com.advertisementdesign.back.auth.service.AuthService;
+import com.advertisementdesign.back.identity.service.CurrentUserProfileProvider;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
@@ -11,7 +11,7 @@ import com.advertisementdesign.back.communication.service.ConversationAccessServ
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.identity.enums.UserRole;
-import com.advertisementdesign.back.project.repository.ProjectRepository;
+import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,20 +35,20 @@ class FileServiceTest {
     @Mock
     private ConversationAccessService conversationAccessService;
     @Mock
-    private ProjectRepository projectRepository;
+    private ProjectAuthorizationService projectAuthorizationService;
     @Mock
     private LocalFileStorage localFileStorage;
     @Mock
     private FileConverter converter;
     @Mock
-    private AuthService authService;
+    private CurrentUserProfileProvider authService;
 
     private FileService fileService;
 
     @BeforeEach
     void setUp() {
         fileService = new FileService(
-                storageRepository, conversationAccessService, projectRepository,
+                storageRepository, conversationAccessService, projectAuthorizationService,
                 localFileStorage, converter, authService);
     }
 
@@ -82,13 +82,14 @@ class FileServiceTest {
         when(authService.currentUserProfile()).thenReturn(user(1L));
         when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
         when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(true);
+        when(projectAuthorizationService.authorizeProjectFile(8L)).thenReturn(
+                new ProjectAuthorizationService.ProjectFileAccessDecision(false, false));
         when(localFileStorage.read(null, "uploads/8/attachment.pdf"))
                 .thenReturn("attachment content".getBytes());
 
         byte[] body = fileService.download(8L);
 
         assertEquals("attachment content", new String(body));
-        verify(projectRepository, never()).canUserAccessFile(8L, 1L);
     }
 
     @Test
@@ -97,7 +98,8 @@ class FileServiceTest {
         when(authService.currentUserProfile()).thenReturn(user(99L));
         when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
         when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(false);
-        when(projectRepository.canUserAccessFile(8L, 99L)).thenReturn(false);
+        when(projectAuthorizationService.authorizeProjectFile(8L)).thenReturn(
+                new ProjectAuthorizationService.ProjectFileAccessDecision(false, false));
 
         ApiException exception = assertThrows(ApiException.class, () -> fileService.download(8L));
 
@@ -112,7 +114,8 @@ class FileServiceTest {
                 new UserProfile(2L, "原设计师", UserRole.DESIGNER, null, UserStatus.ENABLED));
         when(conversationAccessService.isAttachedToConversation(8L)).thenReturn(true);
         when(conversationAccessService.canCurrentUserAccessAttachedFile(8L)).thenReturn(false);
-        when(projectRepository.canUserAccessFile(8L, 2L)).thenReturn(false);
+        when(projectAuthorizationService.authorizeProjectFile(8L)).thenReturn(
+                new ProjectAuthorizationService.ProjectFileAccessDecision(false, false));
 
         ApiException exception = assertThrows(ApiException.class, () -> fileService.download(8L));
 

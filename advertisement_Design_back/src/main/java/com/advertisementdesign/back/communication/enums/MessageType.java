@@ -4,6 +4,7 @@ public enum MessageType {
     TEXT,
     IMAGE,
     FILE,
-    EMOJI,
-    SYSTEM
+    MIXED,
+    SYSTEM,
+    BUSINESS_CARD
 }

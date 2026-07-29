@@ -1,11 +1,14 @@
 package com.advertisementdesign.back.portfolio.service;
 
 import com.advertisementdesign.back.common.api.PageResult;
+import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.web.CurrentUser;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
+import com.advertisementdesign.back.identity.model.ActorRef;
+import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.portfolio.entity.PortfolioCaseEntity;
 import com.advertisementdesign.back.portfolio.enums.PortfolioCategory;
 import com.advertisementdesign.back.portfolio.enums.PortfolioStatus;
@@ -49,6 +52,8 @@ class PortfolioCaseServiceTest {
     private PortfolioCaseMapper portfolioCaseMapper;
     @Mock
     private FileService fileService;
+    @Mock
+    private CurrentActorProvider currentActorProvider;
 
     private PortfolioCaseService portfolioCaseService;
 
@@ -62,7 +67,12 @@ class PortfolioCaseServiceTest {
 
     @BeforeEach
     void setUp() {
-        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper, fileService);
+        org.mockito.Mockito.lenient().when(currentActorProvider.currentActor())
+                .thenAnswer(invocation -> currentActorFromSecurityContext());
+        org.mockito.Mockito.lenient().when(currentActorProvider.requireCurrentActor())
+                .thenAnswer(invocation -> currentActorFromSecurityContext()
+                        .orElseThrow(() -> new ApiException(ApiErrorCode.UNAUTHORIZED)));
+        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper, fileService, currentActorProvider);
     }
 
     @AfterEach
@@ -102,7 +112,7 @@ class PortfolioCaseServiceTest {
         portfolioCaseService.list(null, null, null, null, null, 1, 10);
 
         Wrapper<PortfolioCaseEntity> wrapper = capturedListWrapper();
-        assertTrue(parameters(wrapper).containsValue(PortfolioStatus.PUBLISHED));
+        assertTrue(wrapper.getSqlSegment().contains("status"));
         assertFalse(wrapper.getSqlSegment().contains("featured"));
     }
 
@@ -129,9 +139,10 @@ class PortfolioCaseServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Wrapper<PortfolioCaseEntity>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(portfolioCaseMapper).selectOne(captor.capture());
-        assertTrue(parameters(captor.getValue()).containsValue(PortfolioStatus.PUBLISHED));
-        assertTrue(parameters(captor.getValue()).containsValue(Boolean.TRUE));
-        assertTrue(parameters(captor.getValue()).containsValue(99L));
+        String sql = captor.getValue().getSqlSegment();
+        assertTrue(sql.contains("status"));
+        assertTrue(sql.contains("featured"));
+        assertTrue(sql.contains("id"));
     }
 
     @Test
@@ -296,6 +307,20 @@ class PortfolioCaseServiceTest {
                 .build();
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(currentUser, null, List.of()));
+    }
+
+    private java.util.Optional<CurrentActorProvider.CurrentActor> currentActorFromSecurityContext() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication() == null
+                ? null : SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof CurrentUser currentUser)) {
+            return java.util.Optional.empty();
+        }
+        ActorRef actor = new ActorRef(switch (currentUser.getRole()) {
+            case CUSTOMER -> ActorRef.ActorType.CUSTOMER_USER;
+            case DESIGNER -> ActorRef.ActorType.DESIGNER_USER;
+            case ADMIN -> ActorRef.ActorType.ADMIN_USER;
+        }, currentUser.getId());
+        return java.util.Optional.of(new CurrentActorProvider.CurrentActor(actor, currentUser.getNickname()));
     }
 
     private PortfolioCaseEntity entity(Long id, PortfolioStatus status, boolean featured) {

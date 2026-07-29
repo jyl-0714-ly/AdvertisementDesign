@@ -3,8 +3,8 @@ package com.advertisementdesign.back.portfolio.service;
 import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.common.web.AuthContext;
-import com.advertisementdesign.back.common.web.CurrentUser;
+import com.advertisementdesign.back.identity.model.ActorRef;
+import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.service.FileService;
@@ -33,6 +33,7 @@ public class PortfolioCaseService {
 
     private final PortfolioCaseMapper portfolioCaseMapper;
     private final FileService fileService;
+    private final CurrentActorProvider currentActorProvider;
 
     public PageResult<PortfolioModels.PortfolioCaseVO> list(
             PortfolioCategory category,
@@ -42,8 +43,8 @@ public class PortfolioCaseService {
             Boolean featured,
             long page,
             long size) {
-        CurrentUser currentUser = AuthContext.currentUserOrNull();
-        LambdaQueryWrapper<PortfolioCaseEntity> query = buildVisibleQuery(currentUser)
+        ActorRef actor = currentActorProvider.currentActor().map(CurrentActorProvider.CurrentActor::actor).orElse(null);
+        LambdaQueryWrapper<PortfolioCaseEntity> query = buildVisibleQuery(actor)
                 .eq(category != null, PortfolioCaseEntity::getCategory, category)
                 .eq(StringUtils.hasText(industry), PortfolioCaseEntity::getIndustry, industry)
                 .eq(StringUtils.hasText(style), PortfolioCaseEntity::getStyle, style)
@@ -70,7 +71,9 @@ public class PortfolioCaseService {
 
     public PortfolioModels.PortfolioCaseVO detail(Long id) {
         PortfolioCaseEntity entity = portfolioCaseMapper.selectOne(
-                buildVisibleQuery(AuthContext.currentUserOrNull()).eq(PortfolioCaseEntity::getId, id));
+                buildVisibleQuery(currentActorProvider.currentActor()
+                        .map(CurrentActorProvider.CurrentActor::actor).orElse(null))
+                        .eq(PortfolioCaseEntity::getId, id));
         if (entity == null) {
             throw new ApiException(ApiErrorCode.NOT_FOUND);
         }
@@ -190,20 +193,20 @@ public class PortfolioCaseService {
         return entity;
     }
 
-    private LambdaQueryWrapper<PortfolioCaseEntity> buildVisibleQuery(CurrentUser currentUser) {
+    private LambdaQueryWrapper<PortfolioCaseEntity> buildVisibleQuery(ActorRef actor) {
         LambdaQueryWrapper<PortfolioCaseEntity> query = new LambdaQueryWrapper<>();
-        if (currentUser != null && currentUser.getRole() == UserRole.DESIGNER) {
+        if (actor != null && actor.type() == ActorRef.ActorType.DESIGNER_USER) {
             return query;
         }
         query.eq(PortfolioCaseEntity::getStatus, PortfolioStatus.PUBLISHED);
-        if (currentUser == null) {
+        if (actor == null) {
             query.eq(PortfolioCaseEntity::getFeatured, true);
         }
         return query;
     }
 
     private void ensureDesigner() {
-        if (AuthContext.currentUser().getRole() != UserRole.DESIGNER) {
+        if (currentActorProvider.requireCurrentActor().actor().type() != ActorRef.ActorType.DESIGNER_USER) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
     }

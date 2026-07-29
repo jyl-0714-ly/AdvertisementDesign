@@ -8,16 +8,6 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface ConversationMapper extends BaseMapper<ConversationEntity> {
-    @Select("SELECT * FROM conversation WHERE id = #{id} FOR UPDATE")
+    @Select("SELECT * FROM project_conversation WHERE id = #{id} FOR UPDATE")
     ConversationEntity selectByIdForUpdate(@Param("id") Long id);
-
-    @Select("""
-            SELECT c.*
-            FROM conversation c
-            INNER JOIN message m ON m.conversation_id = c.id AND m.is_deleted = 0
-            INNER JOIN message_file mf ON mf.message_id = m.id
-            WHERE mf.file_id = #{fileId}
-            LIMIT 1
-            """)
-    ConversationEntity selectByAttachedFileId(@Param("fileId") Long fileId);
 }

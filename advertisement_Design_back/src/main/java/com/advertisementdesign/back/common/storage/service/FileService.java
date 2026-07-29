@@ -1,6 +1,6 @@
 package com.advertisementdesign.back.common.storage.service;
 
-import com.advertisementdesign.back.auth.service.AuthService;
+import com.advertisementdesign.back.identity.service.CurrentUserProfileProvider;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.config.StorageProperties;
@@ -14,7 +14,7 @@ import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.communication.service.ConversationAccessService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
-import com.advertisementdesign.back.project.repository.ProjectRepository;
+import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,25 +56,25 @@ public class FileService {
 
     private final StorageRepository storageRepository;
     private final ConversationAccessService conversationAccessService;
-    private final ProjectRepository projectRepository;
+    private final ProjectAuthorizationService projectAuthorizationService;
     private final LocalFileStorage localFileStorage;
     private final FileConverter converter;
-    private final AuthService authService;
+    private final CurrentUserProfileProvider currentUserProfileProvider;
     private final Map<StorageProvider, StorageGateway> gateways = new EnumMap<>(StorageProvider.class);
     private StorageProperties storageProperties = new StorageProperties();
 
     public FileService(StorageRepository storageRepository,
                        ConversationAccessService conversationAccessService,
-                       ProjectRepository projectRepository,
+                       ProjectAuthorizationService projectAuthorizationService,
                        LocalFileStorage localFileStorage,
                        FileConverter converter,
-                       AuthService authService) {
+                       CurrentUserProfileProvider currentUserProfileProvider) {
         this.storageRepository = storageRepository;
         this.conversationAccessService = conversationAccessService;
-        this.projectRepository = projectRepository;
+        this.projectAuthorizationService = projectAuthorizationService;
         this.localFileStorage = localFileStorage;
         this.converter = converter;
-        this.authService = authService;
+        this.currentUserProfileProvider = currentUserProfileProvider;
         this.gateways.put(StorageProvider.LOCAL, localFileStorage);
     }
 
@@ -93,7 +93,7 @@ public class FileService {
     public FileModels.FileAssetVO upload(MultipartFile file, StorageScene scene) {
         Objects.requireNonNull(scene, "Storage scene is required");
         validate(file, scene);
-        UserProfile currentUser = authService.currentUserProfile();
+        UserProfile currentUser = currentUserProfileProvider.currentUserProfile();
         String safeName = safeOriginalName(file.getOriginalFilename());
         byte[] content = readContent(file);
         StorageGateway gateway = activeGateway();
@@ -148,7 +148,7 @@ public class FileService {
     public boolean delete(Long fileId) {
         FileAssetEntity asset = storageRepository.findById(fileId)
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
-        UserProfile currentUser = authService.currentUserProfile();
+        UserProfile currentUser = currentUserProfileProvider.currentUserProfile();
         if (!Objects.equals(asset.getUploaderId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
@@ -253,11 +253,11 @@ public class FileService {
         if (asset.getStatus() == FileStatus.DELETED) {
             throw new ApiException(ApiErrorCode.NOT_FOUND);
         }
-        UserProfile currentUser = authService.currentUserProfile();
-        boolean associated = conversationAccessService.isAttachedToConversation(fileId)
-                || projectRepository.isFileAssociatedWithProject(fileId);
+        UserProfile currentUser = currentUserProfileProvider.currentUserProfile();
+        var projectAccess = projectAuthorizationService.authorizeProjectFile(fileId);
+        boolean associated = conversationAccessService.isAttachedToConversation(fileId) || projectAccess.projectFile();
         if (associated) {
-            if (!canAccessAssociatedFile(fileId, currentUser.id())) {
+            if (!canAccessAssociatedFile(fileId, projectAccess)) {
                 throw new ApiException(ApiErrorCode.FORBIDDEN);
             }
         } else if (!Objects.equals(asset.getUploaderId(), currentUser.id())) {
@@ -266,8 +266,8 @@ public class FileService {
         return asset;
     }
 
-    private boolean canAccessAssociatedFile(Long fileId, Long userId) {
-        return conversationAccessService.canCurrentUserAccessAttachedFile(fileId)
-                || projectRepository.canUserAccessFile(fileId, userId);
+    private boolean canAccessAssociatedFile(Long fileId,
+                                            ProjectAuthorizationService.ProjectFileAccessDecision projectAccess) {
+        return conversationAccessService.canCurrentUserAccessAttachedFile(fileId) || projectAccess.allowed();
     }
 }

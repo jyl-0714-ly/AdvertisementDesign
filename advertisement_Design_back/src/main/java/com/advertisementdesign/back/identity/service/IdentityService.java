@@ -26,6 +26,10 @@ public class IdentityService {
         return Optional.ofNullable(toAccount(user));
     }
 
+    public Optional<UserAccount> findAccountById(Long id) {
+        return Optional.ofNullable(toAccount(userMapper.selectById(id)));
+    }
+
     public Optional<UserProfile> findById(Long id) {
         return Optional.ofNullable(toProfile(userMapper.selectById(id)));
     }
@@ -36,8 +40,8 @@ public class IdentityService {
         UserEntity user = UserEntity.builder()
                 .email(email)
                 .passwordHash(passwordHash)
-                .nickname(nickname)
-                .role(UserRole.CUSTOMER)
+                .displayName(nickname)
+                .accountType(UserRole.CUSTOMER)
                 .status(UserStatus.ENABLED)
                 .createdAt(now)
                 .updatedAt(now)
@@ -56,13 +60,14 @@ public class IdentityService {
     }
 
     @Transactional
-    public UserAccount updateProfile(Long id, String nickname, String avatar, String phone) {
+    public UserAccount updateProfile(Long id, String nickname, Long avatarFileId, String phone) {
         UserEntity user = requireEntity(id);
         if (nickname != null && !nickname.isBlank()) {
-            user.setNickname(nickname);
+            user.setDisplayName(nickname);
         }
-        if (avatar != null) {
-            user.setAvatar(avatar);
+        if (avatarFileId != null) {
+            // Boundary: the caller must validate that this file is an eligible avatar owned by the actor.
+            user.setAvatarFileId(avatarFileId);
         }
         if (phone != null) {
             user.setPhone(phone);
@@ -101,7 +106,7 @@ public class IdentityService {
             return null;
         }
         return new UserAccount(user.getId(), user.getEmail(), user.getPhone(), user.getPasswordHash(),
-                user.getNickname(), user.getRole(), user.getAvatar(), user.getStatus());
+                user.getDisplayName(), user.getAccountType(), user.getAvatarFileId(), user.getStatus());
     }
 
     private UserProfile toProfile(UserEntity user) {
@@ -109,13 +114,19 @@ public class IdentityService {
             return null;
         }
         return new UserProfile(
-                user.getId(), user.getNickname(), user.getRole(), user.getAvatar(), user.getStatus());
+                user.getId(), user.getDisplayName(), user.getAccountType(), user.getAvatarFileId(), user.getStatus());
     }
 
-    public record UserProfile(Long id, String nickname, UserRole role, String avatar, UserStatus status) {
+    public record UserProfile(Long id, String nickname, UserRole role, Long avatarFileId, UserStatus status) {
+        public String avatar() {
+            return avatarFileId == null ? null : String.valueOf(avatarFileId);
+        }
     }
 
     public record UserAccount(Long id, String email, String phone, String passwordHash,
-                              String nickname, UserRole role, String avatar, UserStatus status) {
+                              String nickname, UserRole role, Long avatarFileId, UserStatus status) {
+        public String avatar() {
+            return avatarFileId == null ? null : String.valueOf(avatarFileId);
+        }
     }
 }

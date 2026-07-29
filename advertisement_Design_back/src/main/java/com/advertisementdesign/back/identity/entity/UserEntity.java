@@ -4,7 +4,9 @@ import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,11 +25,14 @@ public class UserEntity {
     private String email;
     private String phone;
     private String passwordHash;
-    private String nickname;
-    private UserRole role;
-    private String avatar;
+    private String displayName;
+    private Long avatarFileId;
+    @TableField("account_type")
+    private UserRole accountType;
     private UserStatus status;
     private LocalDateTime lastLoginAt;
+    @Version
+    private Long version;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

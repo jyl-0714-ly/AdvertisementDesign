@@ -1,29 +1,21 @@
 package com.advertisementdesign.back.communication.service;
 
-import com.advertisementdesign.back.auth.service.AuthService;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
-import com.advertisementdesign.back.identity.enums.UserRole;
-import com.advertisementdesign.back.identity.enums.UserStatus;
-import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
-import com.advertisementdesign.back.project.entity.ProjectEntity;
-import com.advertisementdesign.back.project.repository.ProjectRepository;
+import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class ConversationAccessService {
     private final CommunicationRepository communicationRepository;
-    private final ProjectRepository projectRepository;
-    private final AuthService authService;
+    private final ProjectAuthorizationService projectAuthorizationService;
 
     public void validateCurrentUser(ConversationEntity conversation) {
-        if (!canAccess(conversation, authService.currentUserProfile())) {
+        if (!authorize(conversation).allowed()) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
     }
@@ -33,50 +25,22 @@ public class ConversationAccessService {
     }
 
     public boolean canCurrentUserAccessAttachedFile(Long fileId) {
-        UserProfile currentUser = authService.currentUserProfile();
-        if (currentUser.status() != UserStatus.ENABLED) {
-            return false;
-        }
         return communicationRepository.findConversationByAttachedFileId(fileId)
-                .map(conversation -> canAccess(conversation, currentUser))
+                .map(conversation -> authorize(conversation).allowed())
                 .orElse(false);
     }
 
-    public boolean canAccess(ConversationEntity conversation, UserProfile user) {
-        if (user.status() != UserStatus.ENABLED) {
-            return false;
+    public ProjectAuthorizationService.AuthorizationDecision authorize(ConversationEntity conversation) {
+        if (conversation.getProjectId() == null) {
+            return new ProjectAuthorizationService.AuthorizationDecision(
+                    false,
+                    ProjectAuthorizationService.AccessLevel.NONE,
+                    new ProjectAuthorizationService.AuthorizationBasis(
+                            "CONVERSATION_WITHOUT_PROJECT", null,
+                            ProjectAuthorizationService.ProjectAction.VIEW_FULL, null,
+                            java.time.LocalDateTime.now(), null, null, null, null, java.util.Set.of()));
         }
-        AuthoritativeParticipants participants = resolveParticipants(conversation);
-        return participants != null && isAuthoritativeParticipant(
-                user, participants.customerId(), participants.designerId());
-    }
-
-    public AuthoritativeParticipants requireParticipants(ConversationEntity conversation) {
-        AuthoritativeParticipants participants = resolveParticipants(conversation);
-        if (participants == null) {
-            throw new ApiException(ApiErrorCode.FORBIDDEN);
-        }
-        return participants;
-    }
-
-    private AuthoritativeParticipants resolveParticipants(ConversationEntity conversation) {
-        if (conversation.getProjectId() != null) {
-            ProjectEntity project = projectRepository.findProjectById(conversation.getProjectId())
-                    .orElse(null);
-            return project == null ? null : new AuthoritativeParticipants(
-                    project.getCustomerId(), project.getDesignerId());
-        }
-        return null;
-    }
-
-    public record AuthoritativeParticipants(Long customerId, Long designerId) {
-    }
-
-    private boolean isAuthoritativeParticipant(
-            UserProfile user,
-            Long customerId,
-            Long designerId) {
-        return user.role() == UserRole.CUSTOMER && Objects.equals(customerId, user.id())
-                || user.role() == UserRole.DESIGNER && Objects.equals(designerId, user.id());
+        return projectAuthorizationService.authorize(
+                conversation.getProjectId(), ProjectAuthorizationService.ProjectAction.VIEW_FULL);
     }
 }
