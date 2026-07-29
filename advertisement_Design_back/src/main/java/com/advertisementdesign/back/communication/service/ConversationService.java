@@ -149,7 +149,7 @@ public class ConversationService {
             throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "消息正文和附件不能同时为空");
         }
         validateTarget(conversation.getId(), command.replyToMessageId());
-        validateTarget(conversation.getId(), command.correctionMessageId());
+        validateCorrection(conversation.getId(), command);
     }
 
     private void validateAuthorizationEvidence(ConversationModels.TrustedInternalAppendCommand command) {
@@ -171,6 +171,26 @@ public class ConversationService {
         };
         if (sendSource != expectedSource) {
             throw new ApiException(ApiErrorCode.FORBIDDEN.getCode(), "消息发送主体与来源不匹配");
+        }
+    }
+
+    private void validateCorrection(Long conversationId,
+                                    ConversationModels.TrustedInternalAppendCommand command) {
+        if (command.correctionMessageId() == null) {
+            return;
+        }
+        MessageEntity original = repository.findMessage(conversationId, command.correctionMessageId())
+                .orElseThrow(() -> new ApiException(ApiErrorCode.BAD_REQUEST.getCode(),
+                        "更正的原消息不属于当前项目会话"));
+        if (original.getCorrectionMessageId() != null) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "更正消息不能再次作为原消息更正");
+        }
+        if (original.getActorType() != command.actor().type()
+                || !Objects.equals(original.getActorId(), command.actor().actorId())) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN.getCode(), "只能更正自己发送的消息");
+        }
+        if (repository.findCorrectionForOriginal(conversationId, original.getId()).isPresent()) {
+            throw new ApiException(ApiErrorCode.CONFLICT.getCode(), "这条消息已经有更正内容");
         }
     }
 
@@ -239,10 +259,22 @@ public class ConversationService {
                               ProjectAuthorizationService.AuthorizationBasis basis) {
         auditLogWriter.append(new AuditLogWriter.Entry(
                 projectId, actor, displayIdentity, auditSource(message.sendSource()), "MESSAGE", message.id(), null,
-                "PROJECT_MESSAGE_SENT", objectMapper.convertValue(basis, Map.class), Map.of(),
-                Map.of("conversationId", message.conversationId(), "attachmentCount", message.attachments().size()),
+                message.correctionMessageId() == null ? "PROJECT_MESSAGE_SENT" : "PROJECT_MESSAGE_CORRECTION_SENT",
+                objectMapper.convertValue(basis, Map.class), Map.of(),
+                customerSafeMessageAuditState(message),
                 AuditLogEntity.Result.SUCCESS, null, "message:" + message.clientMessageId(),
                 "message:" + message.clientMessageId(), message.sentAt()));
+    }
+
+    private Map<String, Object> customerSafeMessageAuditState(
+            ConversationModels.InternalMessageView message) {
+        Map<String, Object> state = new java.util.LinkedHashMap<>();
+        state.put("conversationId", message.conversationId());
+        state.put("attachmentCount", message.attachments().size());
+        if (message.correctionMessageId() != null) {
+            state.put("correctsMessageId", message.correctionMessageId());
+        }
+        return Map.copyOf(state);
     }
 
     private AuditLogEntity.Source auditSource(MessageSendSource source) {

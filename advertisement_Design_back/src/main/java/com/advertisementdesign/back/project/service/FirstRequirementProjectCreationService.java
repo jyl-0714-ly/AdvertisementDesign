@@ -170,9 +170,6 @@ public class FirstRequirementProjectCreationService {
                 "stage", workflow.stageCode().name(),
                 "occurredAt", occurredAt.toString());
         eventWriter.write(new ReliableEventWriter.Event(
-                "PROJECT", project.getId(), "PROJECT_AUTO_NAMING_REQUESTED",
-                requestId + ":auto-naming", commonPayload));
-        eventWriter.write(new ReliableEventWriter.Event(
                 "PROJECT", project.getId(), "RESPONSIBLE_DESIGNER_ASSIGNMENT_REQUESTED",
                 requestId + ":designer-assignment", commonPayload));
         eventWriter.write(new ReliableEventWriter.Event(

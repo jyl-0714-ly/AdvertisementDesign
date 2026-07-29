@@ -84,6 +84,16 @@ export interface SendProjectMessageRequest {
   content: string
   clientMessageId: string
   fileAssetIds: number[]
+  correctionMessageId?: number | null
+}
+
+export interface ManualProjectRenameRequest {
+  name: string
+  version: number
+}
+
+export interface RestoreAutomaticNamingRequest {
+  version: number
 }
 
 export interface ProjectStageHistory {

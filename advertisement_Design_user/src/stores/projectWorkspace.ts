@@ -4,6 +4,8 @@ import {
   getProjectMessagePage,
   getProjectWorkspace,
   listProjectStageHistory,
+  renameProjectManually,
+  restoreAutomaticProjectNaming,
   sendProjectMessage,
   uploadProjectMessageDraft
 } from '@/modules/project/api'
@@ -25,6 +27,7 @@ export interface ProjectWorkspaceState {
   messageError: string | null
   composerText: string
   attachments: ProjectDraftAttachment[]
+  correctionTarget: ProjectMessage | null
   clientMessageId: string
   idempotencyKey: string
 }
@@ -47,6 +50,7 @@ function createState(): ProjectWorkspaceState {
     messageError: null,
     composerText: '',
     attachments: [],
+    correctionTarget: null,
     ...intent
   }
 }
@@ -204,6 +208,49 @@ export const useProjectWorkspaceStore = defineStore('project-workspace', () => {
     state.attachments = state.attachments.filter(item => item.localId !== localId)
   }
 
+  function beginCorrection(projectId: number, messageId: number) {
+    const state = ensure(projectId)
+    const message = state.messages.find(item => item.id === messageId)
+    if (!message || message.correctionMessageId != null) return
+    state.correctionTarget = message
+    state.composerText = ''
+    state.messageError = null
+  }
+
+  function cancelCorrection(projectId: number) {
+    ensure(projectId).correctionTarget = null
+  }
+
+  async function renameProject(projectId: number, name: string) {
+    const state = ensure(projectId)
+    const project = state.projection?.project
+    if (!project) return false
+    try {
+      const updated = await renameProjectManually(projectId, { name, version: project.version })
+      if (!expected(projectId) || updated.id !== projectId || !state.projection) return false
+      state.projection.project = updated
+      return true
+    } catch (error) {
+      if (expected(projectId)) state.error = error instanceof Error ? error.message : '项目名称没有保存成功。'
+      return false
+    }
+  }
+
+  async function restoreAutomaticNaming(projectId: number) {
+    const state = ensure(projectId)
+    const project = state.projection?.project
+    if (!project) return false
+    try {
+      const updated = await restoreAutomaticProjectNaming(projectId, { version: project.version })
+      if (!expected(projectId) || updated.id !== projectId || !state.projection) return false
+      state.projection.project = updated
+      return true
+    } catch (error) {
+      if (expected(projectId)) state.error = error instanceof Error ? error.message : '自动命名没有恢复成功。'
+      return false
+    }
+  }
+
   async function send(projectId: number) {
     const state = ensure(projectId)
     const conversationId = state.projection?.conversation.id
@@ -223,12 +270,14 @@ export const useProjectWorkspaceStore = defineStore('project-workspace', () => {
       const message = await sendProjectMessage(projectId, {
         content,
         clientMessageId: state.clientMessageId,
-        fileAssetIds: uploadedIds
+        fileAssetIds: uploadedIds,
+        correctionMessageId: state.correctionTarget?.id ?? null
       }, state.idempotencyKey, controller.signal)
       if (controller.signal.aborted || !expected(projectId, conversationId) || message.conversationId !== conversationId) return false
       state.messages = mergeMessagesChronologically(state.messages, [message])
       state.composerText = ''
       state.attachments = []
+      state.correctionTarget = null
       Object.assign(state, newIntent())
       return true
     } catch (error) {
@@ -251,6 +300,7 @@ export const useProjectWorkspaceStore = defineStore('project-workspace', () => {
 
   return {
     entries, activeProjectId, active, ensure, openProject, loadMessages, loadStageHistory,
-    addFiles, uploadAttachment, removeAttachment, send, close
+    addFiles, uploadAttachment, removeAttachment, beginCorrection, cancelCorrection,
+    renameProject, restoreAutomaticNaming, send, close
   }
 })

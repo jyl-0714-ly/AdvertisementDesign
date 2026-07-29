@@ -1,6 +1,7 @@
 package com.advertisementdesign.back.project.repository;
 
 import com.advertisementdesign.back.project.entity.ProjectEntity;
+import com.advertisementdesign.back.project.enums.ProjectNameSource;
 import com.advertisementdesign.back.project.enums.ProjectStatus;
 
 import java.util.List;
@@ -12,4 +13,7 @@ public interface ProjectRepository {
     Optional<ProjectEntity> findById(Long id);
 
     ProjectEntity save(ProjectEntity project);
+
+    boolean updateName(Long projectId, Long expectedVersion, String name,
+                       ProjectNameSource source, ProjectNameSource requiredCurrentSource);
 }

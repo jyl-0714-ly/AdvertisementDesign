@@ -3,6 +3,7 @@ import type {
   CurrentProjectStageWorkspace,
   FirstRequirementRequest,
   FirstRequirementResponse,
+  ManualProjectRenameRequest,
   ProjectConversation,
   ProjectDetail,
   ProjectMessage,
@@ -12,6 +13,7 @@ import type {
   ProjectStageHistory,
   ProjectSummary,
   ProjectWorkspaceProjection,
+  RestoreAutomaticNamingRequest,
   SendProjectMessageRequest
 } from './types'
 
@@ -36,6 +38,20 @@ export function listProjectSummaries(signal?: AbortSignal) {
 
 export function getProjectDetail(projectId: number, signal?: AbortSignal) {
   return apiRequest<ProjectDetail>(`/projects/${projectId}`, { signal })
+}
+
+export function renameProjectManually(projectId: number, payload: ManualProjectRenameRequest) {
+  return apiRequest<ProjectDetail>(`/projects/${projectId}/name/manual`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function restoreAutomaticProjectNaming(projectId: number, payload: RestoreAutomaticNamingRequest) {
+  return apiRequest<ProjectDetail>(`/projects/${projectId}/name/restore-auto`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
 }
 
 export function getProjectConversation(projectId: number, signal?: AbortSignal) {

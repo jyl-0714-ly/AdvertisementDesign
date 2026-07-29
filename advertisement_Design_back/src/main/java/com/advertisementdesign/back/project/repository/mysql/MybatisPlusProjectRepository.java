@@ -3,10 +3,12 @@ package com.advertisementdesign.back.project.repository.mysql;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.project.entity.ProjectEntity;
+import com.advertisementdesign.back.project.enums.ProjectNameSource;
 import com.advertisementdesign.back.project.enums.ProjectStatus;
 import com.advertisementdesign.back.project.mapper.ProjectMapper;
 import com.advertisementdesign.back.project.repository.ProjectRepository;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -53,6 +55,22 @@ public class MybatisPlusProjectRepository implements ProjectRepository {
             requireAffected(projectMapper.updateById(project));
         }
         return project;
+    }
+
+    @Override
+    public boolean updateName(Long projectId, Long expectedVersion, String name,
+                              ProjectNameSource source, ProjectNameSource requiredCurrentSource) {
+        LambdaUpdateWrapper<ProjectEntity> update = new LambdaUpdateWrapper<ProjectEntity>()
+                .eq(ProjectEntity::getId, projectId)
+                .eq(ProjectEntity::getVersion, expectedVersion)
+                .set(ProjectEntity::getName, name)
+                .set(ProjectEntity::getNameSource, source)
+                .set(ProjectEntity::getVersion, expectedVersion + 1)
+                .set(ProjectEntity::getUpdatedAt, LocalDateTime.now());
+        if (requiredCurrentSource != null) {
+            update.eq(ProjectEntity::getNameSource, requiredCurrentSource);
+        }
+        return projectMapper.update(null, update) == 1;
     }
 
     private void requireAffected(int affectedRows) {

@@ -65,6 +65,12 @@ public class CommunicationRepository {
                 .eq(MessageEntity::getId, messageId).last("LIMIT 1")));
     }
 
+    public Optional<MessageEntity> findCorrectionForOriginal(Long conversationId, Long originalMessageId) {
+        return Optional.ofNullable(messageMapper.selectOne(new LambdaQueryWrapper<MessageEntity>()
+                .eq(MessageEntity::getConversationId, conversationId)
+                .eq(MessageEntity::getCorrectionMessageId, originalMessageId).last("LIMIT 1")));
+    }
+
     public MessageEntity appendMessage(MessageEntity message, List<Long> fileAssetIds) {
         if (message.getId() != null) {
             throw new IllegalArgumentException("Messages are append-only");

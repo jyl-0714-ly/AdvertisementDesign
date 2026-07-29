@@ -2,8 +2,10 @@ package com.advertisementdesign.back.project.controller;
 
 import com.advertisementdesign.back.common.api.Result;
 import com.advertisementdesign.back.project.dto.FirstRequirementRequest;
+import com.advertisementdesign.back.project.dto.ProjectNamingRequests;
 import com.advertisementdesign.back.project.model.ProjectModels;
 import com.advertisementdesign.back.project.service.FirstRequirementProjectCreationService;
+import com.advertisementdesign.back.project.service.ProjectNamingService;
 import com.advertisementdesign.back.project.service.ProjectQueryService;
 import com.advertisementdesign.back.project.vo.FirstRequirementResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ import java.util.List;
 @Validated
 public class ProjectController {
     private final ProjectQueryService projectQueryService;
+    private final ProjectNamingService projectNamingService;
     private final FirstRequirementProjectCreationService firstRequirementProjectCreationService;
 
     @Operation(
@@ -60,6 +63,22 @@ public class ProjectController {
     @GetMapping("/{projectId}")
     public Result<ProjectModels.ProjectFullDetailView> detail(@PathVariable Long projectId) {
         return Result.success(projectQueryService.requireFullDetail(projectId));
+    }
+
+    @Operation(summary = "手动修改项目名称")
+    @PostMapping("/{projectId}/name/manual")
+    public Result<ProjectModels.ProjectFullDetailView> renameManually(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectNamingRequests.ManualRename request) {
+        return Result.success(projectNamingService.renameManually(projectId, request.name(), request.version()));
+    }
+
+    @Operation(summary = "恢复项目自动命名")
+    @PostMapping("/{projectId}/name/restore-auto")
+    public Result<ProjectModels.ProjectFullDetailView> restoreAutomaticNaming(
+            @PathVariable Long projectId,
+            @Valid @RequestBody ProjectNamingRequests.RestoreAutomatic request) {
+        return Result.success(projectNamingService.restoreAutomatic(projectId, request.version()));
     }
 
     @Operation(summary = "项目有效客户成员")

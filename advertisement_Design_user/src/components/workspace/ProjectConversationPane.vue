@@ -1,4 +1,4 @@
-<template><section class="project-conversation-pane"><header><div><small>{{ statusText }}</small><h1>{{ projection.project.name }}</h1></div><span>{{ currentStage?.stageName || '项目准备中' }}</span></header><MessageList :messages="state.messages" :has-more="state.hasMore" :loading-older="state.loadingOlder" :error="state.messageError" @load-older="emit('load-older')"/><MessageComposer v-model="state.composerText" :attachments="state.attachments" :sending="state.sending" :error="state.messageError" @files="emit('files',$event)" @retry="emit('retry',$event)" @remove="emit('remove',$event)" @send="emit('send')"/></section></template>
+<template><section class="project-conversation-pane"><header><div><small>{{ statusText }}</small><h1>{{ projection.project.name }}</h1></div><span>{{ currentStage?.stageName || '项目准备中' }}</span></header><MessageList :messages="state.messages" :has-more="state.hasMore" :loading-older="state.loadingOlder" :error="state.messageError" @load-older="emit('load-older')" @correct="emit('correct',$event)"/><MessageComposer v-model="state.composerText" :attachments="state.attachments" :correction-target="state.correctionTarget" :sending="state.sending" :error="state.messageError" @files="emit('files',$event)" @retry="emit('retry',$event)" @remove="emit('remove',$event)" @cancel-correction="emit('cancel-correction')" @send="emit('send')"/></section></template>
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ProjectWorkspaceProjection } from '@/modules/project/types'
@@ -6,7 +6,7 @@ import type { ProjectWorkspaceState } from '@/stores/projectWorkspace'
 import MessageList from './MessageList.vue'
 import MessageComposer from './MessageComposer.vue'
 const props = defineProps<{ projection: ProjectWorkspaceProjection; state: ProjectWorkspaceState }>()
-const emit = defineEmits<{ 'load-older': []; files: [files: File[]]; retry: [id: string]; remove: [id: string]; send: [] }>()
+const emit = defineEmits<{ 'load-older': []; files: [files: File[]]; retry: [id: string]; remove: [id: string]; correct: [messageId: number]; 'cancel-correction': []; send: [] }>()
 const currentStage = computed(() => props.projection.stages.find(item => item.status === 'IN_PROGRESS' || item.status === 'ACTIVE') || props.projection.stages.find(item => item.status !== 'COMPLETED'))
 const statusText = computed(() => ({ ACTIVE: '项目进行中', PAUSED: '项目已暂停', COMPLETED: '项目已完成', TERMINATED: '项目已终止' } as Record<string,string>)[props.projection.project.status] || '项目服务中')
 </script>

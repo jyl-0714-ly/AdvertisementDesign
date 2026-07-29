@@ -124,6 +124,56 @@ class ConversationServiceTest {
     }
 
     @Test
+    void correctionAppendsNewMessageAndRetainsOriginalReference() {
+        ActorRef actor = new ActorRef(ActorRef.ActorType.CUSTOMER_USER, 7L);
+        var basis = new ProjectAuthorizationService.AuthorizationBasis(
+                "CUSTOMER_PROJECT_MEMBER", 101L, ProjectAuthorizationService.ProjectAction.SEND_MESSAGE,
+                actor, LocalDateTime.now(), 55L, 2L, 66L, 3L, Set.of("PRIMARY_CONTACT"));
+        MessageEntity original = MessageEntity.builder().id(90L).conversationId(88L)
+                .messageType(MessageType.TEXT).content("原消息")
+                .customerDisplayIdentity("可信客户名").actorType(actor.type()).actorId(actor.actorId())
+                .sendSource(MessageSendSource.CUSTOMER_UI).clientMessageId("original-1")
+                .sentAt(LocalDateTime.now()).build();
+        when(currentActorProvider.requireCurrentActor())
+                .thenReturn(new CurrentActorProvider.CurrentActor(actor, "customer"));
+        when(currentUserProfileProvider.currentUserProfile()).thenReturn(
+                new IdentityService.UserProfile(7L, "可信客户名", UserRole.CUSTOMER, null, UserStatus.ENABLED));
+        when(authorizationService.authorize(101L, ProjectAuthorizationService.ProjectAction.SEND_MESSAGE))
+                .thenReturn(new ProjectAuthorizationService.AuthorizationDecision(true,
+                        ProjectAuthorizationService.AccessLevel.FULL, basis));
+        when(projectQueryService.findContext(101L)).thenReturn(Optional.of(
+                new ProjectModels.ProjectContextView(101L, 20L, ProjectStatus.ACTIVE, 1L)));
+        when(repository.findConversationByProjectId(101L)).thenReturn(Optional.of(
+                ConversationEntity.builder().id(88L).projectId(101L).status(ConversationStatus.ACTIVE).version(0L).build()));
+        when(repository.findMessage(88L, 90L)).thenReturn(Optional.of(original));
+        when(repository.findCorrectionForOriginal(88L, 90L)).thenReturn(Optional.empty());
+        doAnswer(invocation -> {
+            invocation.<MessageEntity>getArgument(0).setId(91L);
+            return invocation.getArgument(0);
+        }).when(repository).appendMessage(any(MessageEntity.class), any());
+        when(repository.listAttachments(91L)).thenReturn(List.of());
+        when(repository.findMessage(88L, 91L)).thenAnswer(invocation -> Optional.of(
+                MessageEntity.builder().id(91L).conversationId(88L).messageType(MessageType.TEXT)
+                        .content("更正内容").customerDisplayIdentity("可信客户名")
+                        .actorType(actor.type()).actorId(actor.actorId()).sendSource(MessageSendSource.CUSTOMER_UI)
+                        .correctionMessageId(90L).clientMessageId("correction-1").sentAt(LocalDateTime.now()).build()));
+        ConversationService service = new ConversationService(
+                repository, new ConversationConverter(), authorizationService, projectQueryService,
+                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                new ObjectMapper().findAndRegisterModules());
+
+        ConversationModels.CustomerMessageView correction = service.appendAsCurrentUser(
+                new ConversationModels.CurrentUserAppendCommand(
+                        101L, "更正内容", null, 90L, "correction-1", List.of()));
+
+        ArgumentCaptor<MessageEntity> captor = ArgumentCaptor.forClass(MessageEntity.class);
+        verify(repository).appendMessage(captor.capture(), any());
+        assertEquals(90L, captor.getValue().getCorrectionMessageId());
+        assertEquals(90L, correction.correctionMessageId());
+        assertEquals("原消息", original.getContent());
+    }
+
+    @Test
     void trustedAppendRejectsAuthorizationEvidenceForAnotherActor() {
         ActorRef actor = new ActorRef(ActorRef.ActorType.DESIGNER_USER, 7L);
         ActorRef fabricatedBasisActor = new ActorRef(ActorRef.ActorType.DESIGNER_USER, 8L);
