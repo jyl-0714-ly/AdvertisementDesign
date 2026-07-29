@@ -15,8 +15,6 @@ public interface ProjectRepository {
 
     Optional<ProjectEntity> findProjectById(Long id);
 
-    Optional<ProjectEntity> findProjectByConsultantIntakeId(Long consultantIntakeId);
-
     ProjectEntity saveProject(ProjectEntity project);
 
     List<ProjectStageEntity> listStages(Long projectId);

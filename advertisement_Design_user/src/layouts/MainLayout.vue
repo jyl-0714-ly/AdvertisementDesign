@@ -1,5 +1,5 @@
 <template>
-  <div class="workspace-shell" :class="{ 'workspace-shell--workbench': route.path === '/workbench' || route.path === '/consultant' }">
+  <div class="workspace-shell" :class="{ 'workspace-shell--workbench': route.path === '/workbench' }">
     <header class="workspace-header">
       <button class="workspace-brand" type="button" @click="router.push('/')">
         <span>AD</span><strong>{{ appName }}</strong>
@@ -28,7 +28,7 @@
         <button type="button" class="logout-button" @click="logout">退出</button>
       </div>
     </header>
-    <main class="workspace-main" :class="{ 'workspace-main--workbench': route.path === '/workbench' || route.path === '/consultant' }"><router-view :key="route.fullPath" /></main>
+    <main class="workspace-main" :class="{ 'workspace-main--workbench': route.path === '/workbench' }"><router-view :key="route.fullPath" /></main>
   </div>
 </template>
 

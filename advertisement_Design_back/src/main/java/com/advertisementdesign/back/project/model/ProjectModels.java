@@ -3,23 +3,10 @@ package com.advertisementdesign.back.project.model;
 import com.advertisementdesign.back.project.enums.ProjectStatus;
 import com.advertisementdesign.back.project.enums.ProjectStageStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 @Schema(description = "项目相关模型")
 public final class ProjectModels {
     private ProjectModels() {
-    }
-
-    @Schema(description = "创建项目请求")
-    public record CreateProjectRequest(@NotNull Long customerId, @NotNull Long designerId, @NotBlank String name, String description) {
-    }
-
-    @Schema(description = "基于已确认咨询创建正式项目请求")
-    public record CreateProjectFromConsultationRequest(
-            @NotNull Long intakeId,
-            @NotBlank String name,
-            String description) {
     }
 
     @Schema(description = "更新项目请求；designerId 仅为旧客户端兼容字段，传入将被拒绝")
@@ -35,7 +22,6 @@ public final class ProjectModels {
             String customerName,
             Long designerId,
             String designerName,
-            Long consultantIntakeId,
             String currentStage,
             String currentStageName,
             ProjectStatus status,

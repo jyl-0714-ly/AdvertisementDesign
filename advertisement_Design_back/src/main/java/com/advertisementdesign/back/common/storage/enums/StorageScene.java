@@ -8,7 +8,6 @@ public enum StorageScene {
     PORTFOLIO_COVER_PUBLIC(StorageVisibility.PUBLIC, "portfolio/covers"),
     PORTFOLIO_DETAIL_PUBLIC(StorageVisibility.PUBLIC, "portfolio/details"),
     USER_AVATAR_PUBLIC(StorageVisibility.PUBLIC, "avatars"),
-    CONSULTATION_ATTACHMENT(StorageVisibility.PRIVATE, "consultations/attachments"),
     CONVERSATION_IMAGE(StorageVisibility.PRIVATE, "conversations/images"),
     CONVERSATION_ATTACHMENT(StorageVisibility.PRIVATE, "conversations/attachments"),
     PROJECT_CONTRACT(StorageVisibility.PRIVATE, "projects/contracts"),

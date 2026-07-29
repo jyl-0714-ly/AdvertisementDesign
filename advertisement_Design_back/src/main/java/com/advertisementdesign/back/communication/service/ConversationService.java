@@ -39,7 +39,6 @@ public class ConversationService {
     private final ConversationConverter converter;
     private final AuthService authService;
     private final ConversationAccessService conversationAccessService;
-    private final DesignerMessageAcknowledgementPort acknowledgementPort;
 
     public List<ConversationModels.ConversationVO> list() {
         UserProfile currentUser = authService.currentUserProfile();
@@ -78,13 +77,6 @@ public class ConversationService {
     @Transactional
     public ConversationModels.MessageVO sendMessage(Long conversationId, ConversationModels.SendMessageRequest request) {
         UserProfile sender = authService.currentUserProfile();
-        ConversationEntity snapshot = communicationRepository.findConversationById(conversationId)
-                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
-        if (sender.role() == com.advertisementdesign.back.identity.enums.UserRole.DESIGNER
-                && snapshot.getConsultantIntakeId() != null) {
-            acknowledgementPort.acknowledgeHumanDesignerMessage(
-                    snapshot.getConsultantIntakeId(), sender.id());
-        }
         ConversationEntity conversation = findAllowedConversationForUpdate(conversationId);
         if (request.messageType() == null) {
             throw new ApiException(ApiErrorCode.BAD_REQUEST);

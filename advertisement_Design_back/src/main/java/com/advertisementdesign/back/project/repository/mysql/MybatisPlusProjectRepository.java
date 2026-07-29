@@ -42,12 +42,6 @@ public class MybatisPlusProjectRepository implements ProjectRepository {
     }
 
     @Override
-    public Optional<ProjectEntity> findProjectByConsultantIntakeId(Long consultantIntakeId) {
-        return Optional.ofNullable(projectMapper.selectOne(new LambdaQueryWrapper<ProjectEntity>()
-                .eq(ProjectEntity::getConsultantIntakeId, consultantIntakeId)));
-    }
-
-    @Override
     public ProjectEntity saveProject(ProjectEntity project) {
         LocalDateTime now = LocalDateTime.now();
         if (project.getId() == null) {

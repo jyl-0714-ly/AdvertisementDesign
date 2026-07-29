@@ -23,7 +23,6 @@ public class ProjectEntity {
     private Long customerId;
     private Long designerId;
     private Long initialDesignerId;
-    private Long consultantIntakeId;
     private Long confirmedRequirementVersionId;
     private String description;
     private String currentStage;

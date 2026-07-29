@@ -5,8 +5,6 @@ import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
-import com.advertisementdesign.back.consultation.entity.ConsultantIntakeEntity;
-import com.advertisementdesign.back.consultation.repository.ConsultationRepository;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
@@ -21,7 +19,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class ConversationAccessService {
     private final CommunicationRepository communicationRepository;
-    private final ConsultationRepository consultationRepository;
     private final ProjectRepository projectRepository;
     private final AuthService authService;
 
@@ -69,15 +66,7 @@ public class ConversationAccessService {
             return project == null ? null : new AuthoritativeParticipants(
                     project.getCustomerId(), project.getDesignerId());
         }
-        if (conversation.getConsultantIntakeId() != null) {
-            ConsultantIntakeEntity intake = consultationRepository
-                    .findIntakeById(conversation.getConsultantIntakeId())
-                    .orElse(null);
-            return intake == null ? null : new AuthoritativeParticipants(
-                    intake.getCustomerId(), intake.getMatchedDesignerId());
-        }
-        return new AuthoritativeParticipants(
-                conversation.getCustomerId(), conversation.getDesignerId());
+        return null;
     }
 
     public record AuthoritativeParticipants(Long customerId, Long designerId) {

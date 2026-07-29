@@ -55,8 +55,6 @@ class ConversationServiceTest {
     private AuthService authService;
     @Mock
     private ConversationAccessService conversationAccessService;
-    @Mock
-    private DesignerMessageAcknowledgementPort acknowledgementPort;
 
     private ConversationService conversationService;
 
@@ -64,8 +62,7 @@ class ConversationServiceTest {
     void setUp() {
         conversationService = new ConversationService(
                 communicationRepository, storageRepository, fileService,
-                auditRepository, converter, authService, conversationAccessService,
-                acknowledgementPort);
+                auditRepository, converter, authService, conversationAccessService);
         lenient().when(conversationAccessService.requireParticipants(any()))
                 .thenReturn(new ConversationAccessService.AuthoritativeParticipants(1L, 2L));
     }
@@ -140,8 +137,6 @@ class ConversationServiceTest {
 
     @Test
     void memberCannotAttachFileUploadedByAnotherUser() {
-        when(communicationRepository.findConversationById(1L))
-                .thenReturn(Optional.of(conversation()));
         when(communicationRepository.findConversationByIdForUpdate(1L)).thenReturn(Optional.of(conversation()));
         when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
         when(storageRepository.findById(8L)).thenReturn(Optional.of(FileAssetEntity.builder()
@@ -193,88 +188,6 @@ class ConversationServiceTest {
 
         assertEquals(403, exception.getCode());
         verify(communicationRepository, never()).saveMessage(any());
-    }
-
-    @Test
-    void reassignedDesignerMessageNotifiesCurrentCustomerInsteadOfStaleParticipant() {
-        ConversationEntity staleConversation = ConversationEntity.builder()
-                .id(1L)
-                .consultantIntakeId(7L)
-                .customerId(1L)
-                .designerId(2L)
-                .build();
-        when(communicationRepository.findConversationById(1L))
-                .thenReturn(Optional.of(staleConversation));
-        when(communicationRepository.findConversationByIdForUpdate(1L))
-                .thenReturn(Optional.of(staleConversation));
-        when(authService.currentUserProfile()).thenReturn(user(3L, UserRole.DESIGNER));
-        when(communicationRepository.saveMessage(any())).thenAnswer(invocation -> {
-            MessageEntity message = invocation.getArgument(0);
-            message.setId(12L);
-            return message;
-        });
-        when(conversationAccessService.requireParticipants(staleConversation))
-                .thenReturn(new ConversationAccessService.AuthoritativeParticipants(1L, 3L));
-
-        conversationService.sendMessage(1L,
-                new ConversationModels.SendMessageRequest(
-                        MessageType.TEXT, "当前设计师回复", List.of(), "client-current"));
-
-        verify(communicationRepository).incrementUnreadCount(1L, 1L);
-        verify(communicationRepository, never()).incrementUnreadCount(1L, 2L);
-        verify(acknowledgementPort).acknowledgeHumanDesignerMessage(7L, 3L);
-    }
-
-    @Test
-    void expiredDesignerMessageIsRejectedBeforeConversationLockAndPersistence() {
-        ConversationEntity consultation = ConversationEntity.builder()
-                .id(1L)
-                .consultantIntakeId(7L)
-                .customerId(1L)
-                .designerId(2L)
-                .build();
-        when(authService.currentUserProfile()).thenReturn(user(2L, UserRole.DESIGNER));
-        when(communicationRepository.findConversationById(1L))
-                .thenReturn(Optional.of(consultation));
-        doThrow(new ApiException(403, "分配已过期"))
-                .when(acknowledgementPort)
-                .acknowledgeHumanDesignerMessage(7L, 2L);
-
-        assertEquals(403, assertThrows(ApiException.class,
-                () -> conversationService.sendMessage(1L,
-                        new ConversationModels.SendMessageRequest(
-                                MessageType.TEXT, "迟到回复", List.of(), "late")))
-                .getCode());
-
-        verify(communicationRepository, never()).findConversationByIdForUpdate(any());
-        verify(communicationRepository, never()).saveMessage(any());
-    }
-
-    @Test
-    void customerMessageDoesNotAcknowledgeConsultationAssignment() {
-        ConversationEntity consultation = ConversationEntity.builder()
-                .id(1L)
-                .consultantIntakeId(7L)
-                .customerId(1L)
-                .designerId(2L)
-                .build();
-        when(communicationRepository.findConversationById(1L))
-                .thenReturn(Optional.of(consultation));
-        when(communicationRepository.findConversationByIdForUpdate(1L))
-                .thenReturn(Optional.of(consultation));
-        when(authService.currentUserProfile()).thenReturn(user(1L, UserRole.CUSTOMER));
-        when(communicationRepository.saveMessage(any())).thenAnswer(invocation -> {
-            MessageEntity message = invocation.getArgument(0);
-            message.setId(12L);
-            return message;
-        });
-
-        conversationService.sendMessage(1L,
-                new ConversationModels.SendMessageRequest(
-                        MessageType.TEXT, "客户补充说明", List.of(), "client-customer"));
-
-        verify(acknowledgementPort, never())
-                .acknowledgeHumanDesignerMessage(any(), any());
     }
 
     @Test

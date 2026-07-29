@@ -17,7 +17,6 @@ public final class ConversationModels {
     @Schema(description = "会话视图")
     public record ConversationVO(
             Long id,
-            Long consultantIntakeId,
             Long projectId,
             String projectName,
             ConversationType conversationType,

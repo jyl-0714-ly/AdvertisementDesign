@@ -22,7 +22,6 @@ public class ProjectDesignerTransferEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long projectId;
-    private Long consultantIntakeId;
     private Long conversationId;
     private Long requirementVersionId;
     private Long fromDesignerId;

@@ -33,7 +33,7 @@
       <section id="cases" class="service-block">
         <div class="block-heading"><div class="block-label"><span>04</span><strong>对应案例</strong></div><button type="button" @click="viewAllCases">查看全部案例 →</button></div>
         <div v-loading="loading" class="service-case-grid"><article v-for="item in relatedCases" :key="item.id" @click="openCase(item.id)"><div class="service-case-cover"><img v-if="item.coverUrl && !failedCovers.has(item.id)" :src="item.coverUrl" :alt="`${item.title}案例封面`" loading="lazy" @error="markCoverFailed(item.id)" /><span v-else class="service-case-fallback">{{ item.serviceType }}</span></div><h3>{{ item.title }}</h3><p>{{ item.style }} · {{ item.industry }}</p></article></div>
-        <p v-if="!loading && !relatedCases.length" class="service-empty">相关案例正在整理中，您也可以先与顾问沟通需求。</p>
+        <p v-if="!loading && !relatedCases.length" class="service-empty">相关案例正在整理中，您也可以先在需求沟通工作台说明需求。</p>
       </section>
 
       <section id="workflow" class="service-block muted-block">
@@ -42,7 +42,7 @@
       </section>
 
       <section id="consultation" class="service-consultation">
-        <div><span>LET'S TALK</span><h2>让我们聊聊您的{{ service.title }}需求</h2><p>提交需求后，项目顾问将协助梳理目标、范围与下一步计划。</p></div><button type="button" @click="startConsultation">开始咨询 →</button>
+        <div><span>LET'S TALK</span><h2>让我们聊聊您的{{ service.title }}需求</h2><p>在需求沟通工作台说明目标、范围与时间计划。</p></div><button type="button" @click="startConsultation">开始咨询 →</button>
       </section>
     </main>
   </div>
@@ -68,7 +68,7 @@ const service = computed(() => serviceBySlug[String(route.params.slug)] || defau
 const serviceIndex = computed(() => Math.max(serviceDefinitions.findIndex(item => item.slug === service.value.slug), 0))
 const relatedCases = computed(() => cases.value.filter(item => caseMatchesService(item.serviceType, service.value)).slice(0, 3))
 const workflow = [{ title: '需求沟通', description: '明确业务背景、目标与项目边界。' }, { title: '策略提案', description: '形成方向建议、计划与报价。' }, { title: '设计执行', description: '推进核心方案并持续沟通。' }, { title: '修改确认', description: '根据共识优化并完成定稿。' }, { title: '交付落地', description: '交付文件、规范与后续支持。' }]
-function startConsultation() { void router.push(auth.isLoggedIn ? '/consultant' : { path: '/login', query: { redirect: '/consultant' } }) }
+function startConsultation() { void router.push(auth.isLoggedIn ? '/workbench' : { path: '/login', query: { redirect: '/workbench' } }) }
 function viewAllCases() { if (!auth.isLoggedIn) { ElMessage.info('登录后查看更多案例'); void router.push({ path: '/login', query: { redirect: '/portfolio' } }); return }; void router.push('/portfolio') }
 function openCase(id: number) { rememberPortfolioPosition(route.fullPath); void router.push(`/cases/${id}`) }
 function markCoverFailed(id: number) { failedCovers.value = new Set(failedCovers.value).add(id) }

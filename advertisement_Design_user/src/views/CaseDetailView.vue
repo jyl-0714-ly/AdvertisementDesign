@@ -31,7 +31,7 @@
           <p v-else class="gallery-empty">该案例暂未发布更多项目图片。</p>
         </section>
 
-        <section class="case-closing"><span>DISCUSS A PROJECT</span><h2>需要类似的设计支持？</h2><p>与项目顾问沟通您的业务背景、项目范围和时间计划。</p><button type="button" @click="startConsultation">{{ auth.isLoggedIn ? '开始咨询' : '登录后开始咨询' }} →</button></section>
+        <section class="case-closing"><span>DISCUSS A PROJECT</span><h2>需要类似的设计支持？</h2><p>在需求沟通工作台说明您的业务背景、项目范围和时间计划。</p><button type="button" @click="startConsultation">{{ auth.isLoggedIn ? '开始咨询' : '登录后开始咨询' }} →</button></section>
       </template>
       <div v-else-if="!loading" class="case-not-found">案例不存在或已下线。</div>
     </main>
@@ -59,7 +59,7 @@ const gallery = computed(() => detail.value?.imageUrls?.filter(url => url.trim()
 const compatibilityDescription = computed(() => detail.value?.description?.trim() || '该案例的项目说明正在整理中。')
 
 function markGalleryFailed(index: number) { failedGallery.value = new Set(failedGallery.value).add(index) }
-function startConsultation() { void router.push(auth.isLoggedIn ? '/consultant' : { path: '/login', query: { redirect: '/consultant' } }) }
+function startConsultation() { void router.push(auth.isLoggedIn ? '/workbench' : { path: '/login', query: { redirect: '/workbench' } }) }
 function backToPortfolio() {
   const returnLocation = getPortfolioReturnLocation()
   if (!returnLocation) { void router.push({ path: '/', hash: '#portfolio' }); return }

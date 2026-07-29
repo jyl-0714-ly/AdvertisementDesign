@@ -8,7 +8,6 @@ export type MessageType = 'TEXT' | 'IMAGE' | 'FILE' | 'EMOJI' | 'SYSTEM'
 export type FileStatus = 'ACTIVE' | 'DELETED'
 export type FileRole = 'MATERIAL' | 'REPORT' | 'DRAFT' | 'FINAL' | 'CONTRACT' | 'DELIVERABLE' | 'OTHER'
 export type StageActionStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
-export type ConsultantIntakeStatus = 'MATCHED' | 'ACCEPTED'
 
 export interface Result<T> { code: number; message: string; data: T }
 export interface PageResult<T> { records: T[]; total: number; page: number; size: number; pages: number }
@@ -24,7 +23,6 @@ export interface UserVO {
 
 export interface LoginResponse { token: string; user: UserVO }
 export interface UpdateUserRequest { nickname?: string | null; avatar?: string | null; phone?: string | null }
-export interface CreateProjectFromConsultationRequest { intakeId: number; name: string; description?: string | null }
 export interface UpdateProjectRequest { designerId?: number | null; name?: string | null; description?: string | null; status?: ProjectStatus | null }
 export interface PortfolioCaseRequest {
   title: string
@@ -49,7 +47,6 @@ export interface ProjectVO {
   customerName?: string | null
   designerId: number
   designerName?: string | null
-  consultantIntakeId?: number | null
   currentStage: string
   currentStageName: string
   status: ProjectStatus
@@ -162,45 +159,6 @@ export interface SendMessageRequest {
   content?: string | null
   fileIds?: number[] | null
   clientMessageId?: string | null
-}
-
-export interface ConsultantReceptionVO {
-  intakeId: number
-  status: ConsultantIntakeStatus
-  customerId: number
-  customerName: string
-  customerAvatar?: string | null
-  projectType: string
-  industry: string
-  requirementDescription: string
-  budgetRange: string
-  projectCycle: string
-  matchScore: number
-  matchReason: string
-  humanChatId: string
-  createdAt: string
-}
-
-export interface ProjectPreparationVO {
-  intakeId: number
-  customerId: number
-  designerId: number
-  projectType: string
-  requirementDescription: string
-  contractConfirmed: boolean
-  contractConfirmedAt?: string | null
-  initialPaymentConfirmed: boolean
-  initialPaymentConfirmedAt?: string | null
-}
-
-export interface ConsultantHumanMessageVO {
-  id: number
-  humanChatId: string
-  senderId: number
-  senderRole: 'CUSTOMER' | 'DESIGNER'
-  senderName: string
-  content: string
-  createdAt: string
 }
 
 export interface OperationLogVO {

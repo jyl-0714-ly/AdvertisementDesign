@@ -83,7 +83,7 @@
         <div class="project-tags"><span>创意设计</span><span>客户协作</span><span>{{ activeProject.currentStageName }}</span></div>
         <div><span>项目名称</span><strong>{{ activeProject.name }}</strong></div>
         <div><span>客户信息</span><strong>{{ activeProject.customerName || auth.user?.nickname || '—' }}</strong></div>
-        <div class="project-owner"><b>{{ (activeProject.designerName || '待').slice(0, 1) }}</b><span><small>项目负责人</small><strong>{{ activeProject.designerName || '待分配' }}</strong></span><em>设计顾问</em></div>
+        <div class="project-owner"><b>{{ (activeProject.designerName || '待').slice(0, 1) }}</b><span><small>项目负责人</small><strong>{{ activeProject.designerName || '待分配' }}</strong></span><em>项目服务</em></div>
         <div><span>项目周期</span><strong>{{ projectPeriod(activeProject) }}</strong></div>
         <div><span>合同金额</span><strong>以合同记录为准</strong></div>
         <div class="current-stage-card"><span>当前阶段</span><strong>{{ activeProject.currentStageName }}</strong></div>

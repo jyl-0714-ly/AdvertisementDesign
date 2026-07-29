@@ -56,7 +56,6 @@ export const serviceDefinitions: readonly ServiceDefinition[] = [
 
 export const defaultService = serviceDefinitions[0]
 export const serviceBySlug = Object.fromEntries(serviceDefinitions.map(service => [service.slug, service])) as Record<string, ServiceDefinition>
-export const consultationProjectTypes = [...serviceDefinitions.map(service => service.title), '其他设计服务']
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[\s/&·_-]/g, '').replace(/设计$/u, '')

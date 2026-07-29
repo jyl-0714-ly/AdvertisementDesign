@@ -1,4 +1,4 @@
-export function sanitizeInternalRedirect(value: unknown, fallback = '/consultant') {
+export function sanitizeInternalRedirect(value: unknown, fallback = '/workbench') {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return fallback
   try {
     const url = new URL(value, window.location.origin)

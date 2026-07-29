@@ -33,7 +33,6 @@ public class ConversationConverter {
                 .map(IdentityService.UserProfile::nickname).orElse(null);
         return new ConversationModels.ConversationVO(
                 entity.getId(),
-                entity.getConsultantIntakeId(),
                 entity.getProjectId(),
                 project == null ? null : project.getName(),
                 entity.getConversationType(),

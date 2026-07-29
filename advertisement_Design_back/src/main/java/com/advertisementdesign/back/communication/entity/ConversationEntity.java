@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 public class ConversationEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long consultantIntakeId;
     private Long projectId;
     private Long customerId;
     private Long designerId;

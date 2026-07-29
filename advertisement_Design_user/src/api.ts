@@ -1,9 +1,6 @@
 import type {
   ConversationReadStateVO,
   ConversationVO,
-  ConsultantIntakeRequest,
-  ConsultantIntakeResponse,
-  ConsultantHumanMessageVO,
   CreateProjectFileRequest,
   EmailCodePurpose,
   FileAssetVO,
@@ -141,48 +138,6 @@ export function updateMe(payload: UpdateUserRequest) {
   return request<UserVO>('/users/me', {
     method: 'PUT',
     body: JSON.stringify(payload)
-  })
-}
-
-export function createConsultantIntakeDraft(payload: ConsultantIntakeRequest) {
-  return request<ConsultantIntakeResponse>('/consultant-intakes/drafts', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
-}
-
-export function updateConsultantIntakeDraft(intakeId: number, payload: ConsultantIntakeRequest) {
-  return request<ConsultantIntakeResponse>(`/consultant-intakes/${intakeId}/draft`, {
-    method: 'PUT',
-    body: JSON.stringify(payload)
-  })
-}
-
-export function getCurrentConsultantIntake() {
-  return request<ConsultantIntakeResponse>('/consultant-intakes/current')
-}
-
-export function handoffConsultantIntake(intakeId: number) {
-  return request<ConsultantIntakeResponse>(`/consultant-intakes/${intakeId}/handoff`, {
-    method: 'POST'
-  })
-}
-
-export function createConsultantIntake(payload: ConsultantIntakeRequest) {
-  return request<ConsultantIntakeResponse>('/consultant-intakes', {
-    method: 'POST',
-    body: JSON.stringify(payload)
-  })
-}
-
-export function listConsultantHumanMessages(humanChatId: string) {
-  return request<ConsultantHumanMessageVO[]>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`)
-}
-
-export function sendConsultantHumanMessage(humanChatId: string, content: string) {
-  return request<ConsultantHumanMessageVO>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`, {
-    method: 'POST',
-    body: JSON.stringify({ content })
   })
 }
 

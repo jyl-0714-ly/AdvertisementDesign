@@ -11,10 +11,6 @@ public interface ConversationMapper extends BaseMapper<ConversationEntity> {
     @Select("SELECT * FROM conversation WHERE id = #{id} FOR UPDATE")
     ConversationEntity selectByIdForUpdate(@Param("id") Long id);
 
-    @Select("SELECT * FROM conversation WHERE consultant_intake_id = #{consultantIntakeId} FOR UPDATE")
-    ConversationEntity selectByConsultantIntakeIdForUpdate(
-            @Param("consultantIntakeId") Long consultantIntakeId);
-
     @Select("""
             SELECT c.*
             FROM conversation c

@@ -9,7 +9,6 @@ import PortfolioView from '@/views/PortfolioView.vue'
 import HomeView from '@/views/HomeView.vue'
 import CaseDetailView from '@/views/CaseDetailView.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
-import ConsultantView from '@/views/ConsultantView.vue'
 import ServiceDetailView from '@/views/ServiceDetailView.vue'
 import { sanitizeInternalRedirect } from '@/utils/safeRedirect'
 
@@ -26,7 +25,6 @@ const routes = [
       { path: 'projects', component: ProjectsView, meta: { title: '项目' } },
       { path: 'projects/:id', component: ProjectView, meta: { title: '项目详情' } },
       { path: 'portfolio', component: PortfolioView, meta: { title: '作品集' } },
-      { path: 'consultant', component: ConsultantView, meta: { title: '项目顾问' } },
       { path: 'workbench', component: WorkbenchView, meta: { title: '需求沟通' } },
       { path: 'profile', component: ProfileView, meta: { title: '我的' } }
     ]

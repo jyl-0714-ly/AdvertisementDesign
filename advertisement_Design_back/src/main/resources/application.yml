@@ -60,9 +60,3 @@ app:
       private-bucket: ${OSS_PRIVATE_BUCKET:}
       public-domain: ${OSS_PUBLIC_DOMAIN:}
       signed-url-expiration: ${OSS_SIGNED_URL_EXPIRATION:15m}
-
-  consultation:
-    matching-delay: ${CONSULTATION_MATCHING_DELAY:3s}
-    acknowledgement-timeout: ${CONSULTATION_ACKNOWLEDGEMENT_TIMEOUT:60s}
-    # 裸数字按毫秒解析，同时兼容 @Scheduled 与 Duration 配置绑定
-    scheduler-delay: ${CONSULTATION_SCHEDULER_DELAY:500}

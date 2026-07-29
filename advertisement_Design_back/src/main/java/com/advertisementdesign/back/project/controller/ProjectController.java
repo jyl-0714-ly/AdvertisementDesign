@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -41,20 +40,6 @@ public class ProjectController {
     @GetMapping("/{id}")
     public Result<ProjectModels.ProjectVO> detail(@PathVariable Long id) {
         return Result.success(projectService.detail(id));
-    }
-
-    @Operation(summary = "新增项目（已废弃，请使用咨询创建接口）", deprecated = true)
-    @PostMapping
-    public Result<ProjectModels.ProjectVO> create(@Valid @org.springframework.web.bind.annotation.RequestBody ProjectModels.CreateProjectRequest request) {
-        return Result.success(projectService.create(request));
-    }
-
-    @Operation(summary = "从已完成合同和首付款确认的咨询创建正式项目")
-    @PostMapping("/from-consultation")
-    public Result<ProjectModels.ProjectVO> createFromConsultation(
-            @Valid @org.springframework.web.bind.annotation.RequestBody
-            ProjectModels.CreateProjectFromConsultationRequest request) {
-        return Result.success(projectService.createFromConsultation(request));
     }
 
     @Operation(summary = "更新项目")

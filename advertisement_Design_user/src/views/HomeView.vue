@@ -106,7 +106,7 @@ function scrollTo(id: string) {
   if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' })
   else void router.push({ path: '/', hash: `#${id}` })
 }
-function startConsultation() { void router.push(auth.isLoggedIn ? '/consultant' : { path: '/login', query: { redirect: '/consultant' } }) }
+function startConsultation() { void router.push(auth.isLoggedIn ? '/workbench' : { path: '/login', query: { redirect: '/workbench' } }) }
 function viewAllCases() {
   if (!auth.isLoggedIn) {
     ElMessage.info('登录后查看更多案例')

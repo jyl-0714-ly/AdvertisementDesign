@@ -1,10 +1,7 @@
 import type {
-  ConsultantHumanMessageVO,
-  ConsultantReceptionVO,
   ConversationReadStateVO,
   ConversationVO,
   CreateProjectFileRequest,
-  CreateProjectFromConsultationRequest,
   FileAssetVO,
   LoginResponse,
   MarkReadRequest,
@@ -15,7 +12,6 @@ import type {
   PortfolioCaseRequest,
   PortfolioCaseVO,
   ProjectFileVO,
-  ProjectPreparationVO,
   ProjectStageVO,
   ProjectVO,
   Result,
@@ -104,7 +100,6 @@ export function listProjects(params: { status?: string; currentStage?: string; k
   return request<PageResult<ProjectVO>>(`/projects${buildQuery(params)}`)
 }
 export function getProject(id: number) { return request<ProjectVO>(`/projects/${id}`) }
-export function createProjectFromConsultation(payload: CreateProjectFromConsultationRequest) { return request<ProjectVO>('/projects/from-consultation', { method: 'POST', body: JSON.stringify(payload) }) }
 export function updateProject(id: number, payload: UpdateProjectRequest) { return request<ProjectVO>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }) }
 export function deleteProject(id: number) { return request<boolean>(`/projects/${id}`, { method: 'DELETE' }) }
 export function listProjectStages(projectId: number) { return request<ProjectStageVO[]>(`/projects/${projectId}/stages`) }
@@ -119,34 +114,6 @@ export function confirmStageAction(actionId: number, payload: StageActionRespons
 }
 export function rejectStageAction(actionId: number, payload: StageActionResponseRequest = {}) {
   return request<StageActionVO>(`/stage-actions/${actionId}/reject`, { method: 'POST', body: JSON.stringify(payload) })
-}
-
-export function listConsultantReceptions() {
-  return request<ConsultantReceptionVO[]>('/consultant-intakes/designer-receptions')
-}
-export function getConsultantReception(intakeId: number) {
-  return request<ConsultantReceptionVO>(`/consultant-intakes/designer-receptions/${intakeId}`)
-}
-export function acceptConsultantReception(intakeId: number) {
-  return request<ConsultantReceptionVO>(`/consultant-intakes/designer-receptions/${intakeId}/accept`, { method: 'POST' })
-}
-export function getProjectPreparation(intakeId: number) {
-  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation`)
-}
-export function confirmConsultationContract(intakeId: number) {
-  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation/contract-confirmation`, { method: 'POST' })
-}
-export function confirmConsultationInitialPayment(intakeId: number) {
-  return request<ProjectPreparationVO>(`/consultant-intakes/designer-receptions/${intakeId}/project-preparation/initial-payment-confirmation`, { method: 'POST' })
-}
-export function listConsultantHumanMessages(humanChatId: string) {
-  return request<ConsultantHumanMessageVO[]>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`)
-}
-export function sendConsultantHumanMessage(humanChatId: string, content: string) {
-  return request<ConsultantHumanMessageVO>(`/consultant-intakes/human-chats/${encodeURIComponent(humanChatId)}/messages`, {
-    method: 'POST',
-    body: JSON.stringify({ content })
-  })
 }
 
 export function listConversations() { return request<ConversationVO[]>('/conversations') }
