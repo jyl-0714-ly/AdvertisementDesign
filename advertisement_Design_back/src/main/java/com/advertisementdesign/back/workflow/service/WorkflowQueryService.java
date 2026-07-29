@@ -1,5 +1,7 @@
 package com.advertisementdesign.back.workflow.service;
 
+import com.advertisementdesign.back.artifact.enums.ArtifactEnums.ArtifactType;
+import com.advertisementdesign.back.artifact.service.ArtifactService;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
@@ -22,6 +24,7 @@ public class WorkflowQueryService {
     private final WorkflowConverter converter;
     private final ProjectQueryService projectQueryService;
     private final ProjectAuthorizationService authorizationService;
+    private final ArtifactService artifactService;
 
     public List<WorkflowModels.StageInstanceView> stages(Long projectId) {
         requireProject(projectId);
@@ -65,8 +68,11 @@ public class WorkflowQueryService {
         };
         boolean canComplete = authorizationService.authorize(projectId, completionAction).allowed();
         if (stageCode == StageCode.REQUIREMENT_GUIDE) {
-            canComplete = canComplete && projectQueryService.requireFullDetail(projectId)
-                    .confirmedRequirementVersionId() != null;
+            canComplete = canComplete
+                    && artifactService.hasConfirmedVersion(projectId, ArtifactType.REQUIREMENT);
+        } else if (stageCode == StageCode.RESEARCH_REPORT) {
+            canComplete = canComplete
+                    && artifactService.hasConfirmedVersion(projectId, ArtifactType.RESEARCH_REPORT);
         } else if (stageCode != StageCode.AFTER_SALE_REPURCHASE) {
             canComplete = false;
         }

@@ -5,7 +5,6 @@ import com.advertisementdesign.back.common.storage.enums.FileStatus;
 import com.advertisementdesign.back.common.storage.enums.StorageProvider;
 import com.advertisementdesign.back.common.storage.enums.StorageVisibility;
 import com.advertisementdesign.back.common.storage.enums.StorageZone;
-import com.advertisementdesign.back.identity.model.ActorRef;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -25,7 +24,7 @@ import java.time.LocalDateTime;
 public class FileAssetEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private ActorRef.ActorType uploaderActorType;
+    private String uploaderActorType;
     private Long uploaderActorId;
     private Long organizationId;
     private Long projectId;

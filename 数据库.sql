@@ -30,6 +30,7 @@ DROP TABLE IF EXISTS `change_order_version`;
 DROP TABLE IF EXISTS `change_order`;
 DROP TABLE IF EXISTS `artifact_confirmation`;
 DROP TABLE IF EXISTS `artifact_approval`;
+DROP TABLE IF EXISTS `artifact_annotation`;
 DROP TABLE IF EXISTS `artifact_version_file`;
 DROP TABLE IF EXISTS `artifact_version`;
 DROP TABLE IF EXISTS `artifact`;
@@ -41,6 +42,7 @@ DROP TABLE IF EXISTS `message`;
 DROP TABLE IF EXISTS `project_conversation`;
 DROP TABLE IF EXISTS `project_assignment`;
 DROP TABLE IF EXISTS `customer_project_member`;
+DROP TABLE IF EXISTS `portfolio_case_asset`;
 DROP TABLE IF EXISTS `portfolio_case`;
 DROP TABLE IF EXISTS `file_asset`;
 DROP TABLE IF EXISTS `idempotency_record`;
@@ -321,6 +323,22 @@ CREATE TABLE `portfolio_case` (
   CONSTRAINT `chk_portfolio_version` CHECK (`version` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公开作品案例；分类基线已直接纳入，无需历史升级脚本';
 
+CREATE TABLE `portfolio_case_asset` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `portfolio_case_id` BIGINT NOT NULL COMMENT '作品案例 ID',
+  `file_asset_id` BIGINT NOT NULL COMMENT '公开区文件资产 ID',
+  `asset_role` VARCHAR(16) NOT NULL COMMENT 'COVER / DETAIL',
+  `display_order` INT NOT NULL DEFAULT 0,
+  `caption` VARCHAR(255) DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_portfolio_case_asset_file` (`portfolio_case_id`, `file_asset_id`),
+  UNIQUE KEY `uk_portfolio_case_asset_order` (`portfolio_case_id`, `display_order`),
+  CONSTRAINT `fk_portfolio_case_asset_case` FOREIGN KEY (`portfolio_case_id`) REFERENCES `portfolio_case` (`id`),
+  CONSTRAINT `fk_portfolio_case_asset_file` FOREIGN KEY (`file_asset_id`) REFERENCES `file_asset` (`id`),
+  CONSTRAINT `chk_portfolio_case_asset_role` CHECK (`asset_role` IN ('COVER', 'DETAIL'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公开作品结构化文件清单；仅关联公共存储区文件';
+
 -- ============================================================================
 -- communication：项目唯一主会话、不可变消息、附件与已读状态
 -- ============================================================================
@@ -524,9 +542,11 @@ CREATE TABLE `artifact_version` (
   `content` JSON DEFAULT NULL COMMENT '结构化版本内容',
   `content_hash` VARCHAR(128) NOT NULL COMMENT '版本内容及文件清单摘要哈希',
   `publication_status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT / PUBLISHED / WITHDRAWN',
+  `generated` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否由生成式工具产生；生成版本默认未审核',
   `created_by_actor_type` VARCHAR(32) NOT NULL COMMENT '真实创建主体类型',
   `created_by_actor_id` BIGINT DEFAULT NULL COMMENT '真实创建主体 ID',
   `published_by_user_id` BIGINT DEFAULT NULL COMMENT '发布人账号 ID',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '并发控制版本',
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '版本创建时间',
   `published_at` DATETIME(3) DEFAULT NULL COMMENT '发布时间',
   PRIMARY KEY (`id`),
@@ -539,7 +559,8 @@ CREATE TABLE `artifact_version` (
   CONSTRAINT `fk_artifact_version_artifact_project` FOREIGN KEY (`artifact_id`, `project_id`) REFERENCES `artifact` (`id`, `project_id`),
   CONSTRAINT `fk_artifact_version_parent_artifact` FOREIGN KEY (`parent_version_id`, `artifact_id`) REFERENCES `artifact_version` (`id`, `artifact_id`),
   CONSTRAINT `fk_artifact_version_publisher` FOREIGN KEY (`published_by_user_id`) REFERENCES `user` (`id`),
-  CONSTRAINT `chk_artifact_version_number` CHECK (`version_number` >= 1),
+  CONSTRAINT `chk_artifact_version_number` CHECK (`version_number` >= 1 AND `version` >= 0),
+  CONSTRAINT `chk_artifact_version_generated` CHECK (`generated` IN (0, 1)),
   CONSTRAINT `chk_artifact_version_status` CHECK (`publication_status` IN ('DRAFT', 'PUBLISHED', 'WITHDRAWN')),
   CONSTRAINT `chk_artifact_version_actor` CHECK (`created_by_actor_type` IN ('CUSTOMER_USER', 'DESIGNER_USER', 'ADMIN_USER', 'COORDINATOR_AGENT', 'STAGE_AGENT', 'SYSTEM_EVENT')),
   CONSTRAINT `chk_artifact_version_publish` CHECK (
@@ -568,6 +589,24 @@ CREATE TABLE `artifact_version_file` (
   CONSTRAINT `chk_artifact_version_file_order` CHECK (`display_order` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='产物版本文件清单；历史版本关系不可静默覆盖';
 
+CREATE TABLE `artifact_annotation` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `project_id` BIGINT NOT NULL,
+  `artifact_version_id` BIGINT NOT NULL,
+  `file_asset_id` BIGINT NOT NULL,
+  `annotation_type` VARCHAR(16) NOT NULL,
+  `geometry` JSON NOT NULL COMMENT '相对坐标及页面信息',
+  `content` VARCHAR(2000) DEFAULT NULL,
+  `actor_type` VARCHAR(32) NOT NULL,
+  `actor_id` BIGINT NOT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_artifact_annotation_version_file` (`artifact_version_id`, `file_asset_id`, `created_at`),
+  CONSTRAINT `fk_artifact_annotation_version_project` FOREIGN KEY (`artifact_version_id`, `project_id`) REFERENCES `artifact_version` (`id`, `project_id`),
+  CONSTRAINT `fk_artifact_annotation_file` FOREIGN KEY (`file_asset_id`) REFERENCES `file_asset` (`id`),
+  CONSTRAINT `chk_artifact_annotation_type` CHECK (`annotation_type` IN ('POINT', 'RECTANGLE', 'FREEHAND', 'TEXT'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='绑定具体产物版本和文件的结构化标注';
+
 CREATE TABLE `artifact_approval` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '审核记录主键',
   `project_id` BIGINT NOT NULL COMMENT '项目 ID',
@@ -590,11 +629,16 @@ CREATE TABLE `artifact_approval` (
 CREATE TABLE `artifact_confirmation` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '客户确认记录主键',
   `project_id` BIGINT NOT NULL COMMENT '项目 ID',
+  `artifact_id` BIGINT NOT NULL COMMENT '产物聚合 ID 快照',
   `artifact_version_id` BIGINT NOT NULL COMMENT '被确认的不可变版本 ID',
+  `artifact_version_number` INT NOT NULL COMMENT '确认时版本号快照',
   `confirmation_type` VARCHAR(32) NOT NULL COMMENT 'REQUIREMENT / REPORT / SKETCH / FORMAL_DESIGN / DELIVERY_RECEIPT',
   `result` VARCHAR(16) NOT NULL COMMENT 'CONFIRMED / REJECTED',
+  `actor_type` VARCHAR(32) NOT NULL COMMENT '真实操作主体类型',
+  `actor_id` BIGINT NOT NULL COMMENT '真实操作主体 ID',
   `customer_member_id` BIGINT NOT NULL COMMENT '真实客户项目成员 ID',
   `authorization_basis` JSON NOT NULL COMMENT '专项确认权限依据快照',
+  `object_version` BIGINT NOT NULL COMMENT '确认命令携带的产物对象版本',
   `comment` VARCHAR(1000) DEFAULT NULL COMMENT '确认或驳回意见',
   `idempotency_key` VARCHAR(128) NOT NULL COMMENT '客户命令幂等键',
   `confirmed_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '操作时间',

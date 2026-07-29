@@ -4,7 +4,10 @@ import com.advertisementdesign.back.common.api.PageResult;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.web.CurrentUser;
+import com.advertisementdesign.back.common.storage.enums.FileBusinessScope;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
+import com.advertisementdesign.back.common.storage.enums.StorageVisibility;
+import com.advertisementdesign.back.common.storage.enums.StorageZone;
 import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.model.ActorRef;
@@ -12,6 +15,7 @@ import com.advertisementdesign.back.identity.service.CurrentActorProvider;
 import com.advertisementdesign.back.portfolio.entity.PortfolioCaseEntity;
 import com.advertisementdesign.back.portfolio.enums.PortfolioCategory;
 import com.advertisementdesign.back.portfolio.enums.PortfolioStatus;
+import com.advertisementdesign.back.portfolio.mapper.PortfolioCaseAssetMapper;
 import com.advertisementdesign.back.portfolio.mapper.PortfolioCaseMapper;
 import com.advertisementdesign.back.portfolio.model.PortfolioModels;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
@@ -51,6 +55,8 @@ class PortfolioCaseServiceTest {
     @Mock
     private PortfolioCaseMapper portfolioCaseMapper;
     @Mock
+    private PortfolioCaseAssetMapper portfolioCaseAssetMapper;
+    @Mock
     private FileService fileService;
     @Mock
     private CurrentActorProvider currentActorProvider;
@@ -72,7 +78,10 @@ class PortfolioCaseServiceTest {
         org.mockito.Mockito.lenient().when(currentActorProvider.requireCurrentActor())
                 .thenAnswer(invocation -> currentActorFromSecurityContext()
                         .orElseThrow(() -> new ApiException(ApiErrorCode.UNAUTHORIZED)));
-        portfolioCaseService = new PortfolioCaseService(portfolioCaseMapper, fileService, currentActorProvider);
+        org.mockito.Mockito.lenient().when(fileService.requireActiveMetadata(any(Long.class)))
+                .thenAnswer(invocation -> publicPortfolioMetadata(invocation.getArgument(0)));
+        portfolioCaseService = new PortfolioCaseService(
+                portfolioCaseMapper, portfolioCaseAssetMapper, fileService, currentActorProvider);
     }
 
     @AfterEach
@@ -156,8 +165,10 @@ class PortfolioCaseServiceTest {
         portfolioCaseService.uploadPublicImage(cover, true);
         portfolioCaseService.uploadPublicImage(detail, false);
 
-        verify(fileService).upload(cover, StorageScene.PORTFOLIO_COVER_PUBLIC);
-        verify(fileService).upload(detail, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
+        verify(fileService).upload(org.mockito.ArgumentMatchers.eq(cover),
+                org.mockito.ArgumentMatchers.eq(StorageScene.PORTFOLIO_COVER_PUBLIC), any(FileService.Uploader.class));
+        verify(fileService).upload(org.mockito.ArgumentMatchers.eq(detail),
+                org.mockito.ArgumentMatchers.eq(StorageScene.PORTFOLIO_DETAIL_PUBLIC), any(FileService.Uploader.class));
     }
 
     @Test
@@ -170,8 +181,10 @@ class PortfolioCaseServiceTest {
 
         portfolioCaseService.uploadPublicImages(List.of(first, second), false);
 
-        verify(fileService).upload(first, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
-        verify(fileService).upload(second, StorageScene.PORTFOLIO_DETAIL_PUBLIC);
+        verify(fileService).upload(org.mockito.ArgumentMatchers.eq(first),
+                org.mockito.ArgumentMatchers.eq(StorageScene.PORTFOLIO_DETAIL_PUBLIC), any(FileService.Uploader.class));
+        verify(fileService).upload(org.mockito.ArgumentMatchers.eq(second),
+                org.mockito.ArgumentMatchers.eq(StorageScene.PORTFOLIO_DETAIL_PUBLIC), any(FileService.Uploader.class));
     }
 
     @Test
@@ -182,7 +195,7 @@ class PortfolioCaseServiceTest {
                 () -> portfolioCaseService.uploadPublicImages(List.of(), false));
 
         assertEquals(400, exception.getCode());
-        verify(fileService, never()).upload(any(), any(StorageScene.class));
+        verify(fileService, never()).upload(any(), any(StorageScene.class), any(FileService.Uploader.class));
     }
 
     @Test
@@ -195,7 +208,7 @@ class PortfolioCaseServiceTest {
                 () -> portfolioCaseService.uploadPublicImage(file, true));
 
         assertEquals(403, exception.getCode());
-        verify(fileService, never()).upload(any(), any(StorageScene.class));
+        verify(fileService, never()).upload(any(), any(StorageScene.class), any(FileService.Uploader.class));
     }
 
     @Test
@@ -323,6 +336,23 @@ class PortfolioCaseServiceTest {
         return java.util.Optional.of(new CurrentActorProvider.CurrentActor(actor, currentUser.getNickname()));
     }
 
+    private FileService.AssetMetadata publicPortfolioMetadata(Long fileId) {
+        return new FileService.AssetMetadata(
+                fileId,
+                ActorRef.ActorType.DESIGNER_USER.name(),
+                10L,
+                null,
+                null,
+                FileBusinessScope.PUBLIC_PORTFOLIO,
+                StorageVisibility.PUBLIC,
+                StorageZone.PUBLIC,
+                "portfolio-" + fileId + ".webp",
+                "image/webp",
+                "webp",
+                1L
+        );
+    }
+
     private PortfolioCaseEntity entity(Long id, PortfolioStatus status, boolean featured) {
         LocalDateTime now = LocalDateTime.of(2026, 7, 24, 10, 0);
         return PortfolioCaseEntity.builder()
@@ -332,8 +362,7 @@ class PortfolioCaseServiceTest {
                 .industry("餐饮")
                 .style("极简")
                 .serviceType("品牌设计")
-                .coverUrl("https://example.com/cover.jpg")
-                .imageUrls(List.of("https://example.com/image.jpg"))
+                .coverFileId(11L)
                 .description("案例描述")
                 .sortOrder(1)
                 .featured(featured)
@@ -353,8 +382,8 @@ class PortfolioCaseServiceTest {
                 "餐饮",
                 "极简",
                 "品牌设计",
-                "https://example.com/new-cover.jpg",
-                List.of("https://example.com/new-image.jpg"),
+                11L,
+                List.of(12L),
                 "更新后的案例描述",
                 sortOrder,
                 featured,

@@ -6,7 +6,6 @@ import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.idempotency.service.IdempotencyService;
 import com.advertisementdesign.back.common.outbox.service.ReliableEventWriter;
-import com.advertisementdesign.back.common.storage.service.FirstRequirementAttachmentService;
 import com.advertisementdesign.back.communication.service.FirstRequirementConversationService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;

@@ -4,11 +4,8 @@ import com.advertisementdesign.back.common.audit.service.AuditLogWriter;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.idempotency.service.IdempotencyService;
 import com.advertisementdesign.back.common.outbox.service.ReliableEventWriter;
-import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
 import com.advertisementdesign.back.common.storage.enums.FileBusinessScope;
-import com.advertisementdesign.back.common.storage.enums.FileStatus;
-import com.advertisementdesign.back.common.storage.repository.StorageRepository;
-import com.advertisementdesign.back.common.storage.service.FirstRequirementAttachmentService;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.communication.service.FirstRequirementConversationService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
@@ -174,19 +171,21 @@ class FirstRequirementHighRiskTest {
 
     @Test
     void crossCustomerAttachmentIsRejectedWithoutClaim() {
-        StorageRepository repository = Mockito.mock(StorageRepository.class);
-        FirstRequirementAttachmentService realService = new FirstRequirementAttachmentService(repository);
-        FileAssetEntity otherCustomerDraft = FileAssetEntity.builder()
-                .id(91L).uploaderActorType(ActorRef.ActorType.CUSTOMER_USER).uploaderActorId(202L)
-                .businessScope(FileBusinessScope.PRIVATE_DRAFT).status(FileStatus.ACTIVE)
-                .fileExtension("pdf").mimeType("application/pdf").fileSize(1024L).version(0L).build();
-        when(repository.findById(91L)).thenReturn(Optional.of(otherCustomerDraft));
+        FileService fileService = Mockito.mock(FileService.class);
+        FirstRequirementAttachmentService realService = new FirstRequirementAttachmentService(fileService);
+        when(fileService.requireActiveMetadata(91L)).thenReturn(new FileService.AssetMetadata(
+                91L, ActorRef.ActorType.CUSTOMER_USER.name(), 202L, null, null,
+                FileBusinessScope.PRIVATE_DRAFT,
+                com.advertisementdesign.back.common.storage.enums.StorageVisibility.INTERNAL,
+                com.advertisementdesign.back.common.storage.enums.StorageZone.PRIVATE,
+                "brief.pdf", "application/pdf", "pdf", 1024L));
 
         ApiException exception = assertThrows(ApiException.class, () -> realService.validateAndClaim(
                 new FirstRequirementAttachmentService.Command(ACTOR, 11L, 31L, List.of(91L))));
 
         assertEquals(403, exception.getCode());
-        verify(repository, never()).claimFirstRequirementDraft(otherCustomerDraft, 101L, 11L, 31L);
+        verify(fileService, never()).claimFirstRequirementDraft(
+                any(), any(), any(), any());
     }
 
     @Test

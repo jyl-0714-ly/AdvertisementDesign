@@ -6,34 +6,27 @@ import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.workflow.enums.StageCode;
 import com.advertisementdesign.back.workflow.enums.WorkflowCommandType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
-public class RequirementStageGate implements WorkflowStageGate {
+@RequiredArgsConstructor
+public class ResearchReportStageGate implements WorkflowStageGate {
     private final ArtifactService artifactService;
-
-    public RequirementStageGate(ArtifactService artifactService) {
-        this.artifactService = artifactService;
-    }
 
     @Override
     public boolean supports(StageCode stageCode) {
-        return stageCode == StageCode.REQUIREMENT_GUIDE;
+        return stageCode == StageCode.RESEARCH_REPORT;
     }
 
     @Override
     public void verify(Context context) {
-        if (context.command() != WorkflowCommandType.COMPLETE) {
-            return;
-        }
+        if (context.command() != WorkflowCommandType.COMPLETE) return;
         if (!"ARTIFACT_VERSION".equals(context.relatedObjectType())
                 || context.relatedObjectId() == null || context.relatedObjectVersion() == null
-                || !artifactService.hasConfirmedVersion(context.projectId(), ArtifactType.REQUIREMENT,
+                || !artifactService.hasConfirmedVersion(context.projectId(), ArtifactType.RESEARCH_REPORT,
                 context.relatedObjectId(), Math.toIntExact(context.relatedObjectVersion()))) {
-            throw new ApiException(
-                    ApiErrorCode.BUSINESS_ERROR.getCode(),
-                    "需求阶段必须绑定已确认的不可变需求版本"
-            );
+            throw new ApiException(ApiErrorCode.BUSINESS_ERROR.getCode(), "调研阶段必须绑定客户已确认的报告版本");
         }
     }
 }

@@ -113,6 +113,12 @@ public class CommunicationRepository {
         return message == null ? Optional.empty() : findConversationById(message.getConversationId());
     }
 
+    public boolean isAttachedToProject(Long projectId, Long fileAssetId) {
+        return findConversationByAttachedFileId(fileAssetId)
+                .map(conversation -> projectId.equals(conversation.getProjectId()))
+                .orElse(false);
+    }
+
     public Optional<ConversationReadStateEntity> findReadState(Long conversationId, Long userId) {
         return Optional.ofNullable(readStateMapper.selectOne(new LambdaQueryWrapper<ConversationReadStateEntity>()
                 .eq(ConversationReadStateEntity::getConversationId, conversationId)

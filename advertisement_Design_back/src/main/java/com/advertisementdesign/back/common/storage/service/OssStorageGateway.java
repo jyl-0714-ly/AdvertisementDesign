@@ -58,10 +58,8 @@ public class OssStorageGateway implements StorageGateway {
     }
 
     @Override
-    public byte[] read(String bucketName, String objectKey) throws IOException {
-        try (InputStream inputStream = client.getObject(bucketName, objectKey).getObjectContent()) {
-            return inputStream.readAllBytes();
-        }
+    public InputStream openStream(String bucketName, String objectKey) {
+        return client.getObject(bucketName, objectKey).getObjectContent();
     }
 
     @Override

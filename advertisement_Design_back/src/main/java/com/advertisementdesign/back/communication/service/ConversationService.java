@@ -5,7 +5,6 @@ import com.advertisementdesign.back.common.audit.service.AuditLogWriter;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.model.FileModels;
-import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.communication.converter.ConversationConverter;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.entity.MessageEntity;
@@ -39,7 +38,7 @@ public class ConversationService {
     private final ProjectQueryService projectQueryService;
     private final CurrentActorProvider currentActorProvider;
     private final CurrentUserProfileProvider currentUserProfileProvider;
-    private final FileService fileService;
+    private final CommunicationFileService communicationFileService;
     private final AuditLogWriter auditLogWriter;
     private final ObjectMapper objectMapper;
 
@@ -87,7 +86,7 @@ public class ConversationService {
         if (existing.isPresent()) {
             return toCustomerMessage(existing.get());
         }
-        fileService.claimProjectMessageDrafts(
+        communicationFileService.claimDrafts(
                 context.projectId(), context.organizationId(), currentActor.actor(), command.fileAssetIds());
         ConversationModels.InternalMessageView appended = appendValidated(
                 new ConversationModels.TrustedInternalAppendCommand(
@@ -225,12 +224,19 @@ public class ConversationService {
 
     private ConversationModels.CustomerMessageView toCustomerMessage(MessageEntity message) {
         var attachments = repository.listAttachments(message.getId()).stream().map(attachment -> {
-            FileModels.CustomerSafeFileMetadata file = fileService.customerSafeMetadata(attachment.getFileAssetId());
+            FileModels.CustomerSafeFileMetadata file = communicationFileService.metadataForAttached(
+                    messageProjectId(message), attachment.getFileAssetId());
             return new ConversationModels.AttachmentView(
                     attachment.getId(), attachment.getFileAssetId(), attachment.getDisplayOrder(),
                     file.name(), file.mimeType(), file.size(), file.downloadPath(), attachment.getCreatedAt());
         }).toList();
         return converter.toCustomerMessageView(message, attachments);
+    }
+
+    private Long messageProjectId(MessageEntity message) {
+        return repository.findConversationById(message.getConversationId())
+                .map(ConversationEntity::getProjectId)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
     }
 
     private MessageType customerMessageType(String content, List<Long> fileAssetIds) {

@@ -10,7 +10,6 @@ import com.advertisementdesign.back.communication.model.ConversationModels;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
 import com.advertisementdesign.back.common.audit.service.AuditLogWriter;
 import com.advertisementdesign.back.common.exception.ApiException;
-import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.model.ActorRef;
@@ -48,7 +47,7 @@ class ConversationServiceTest {
     @Mock private ProjectQueryService projectQueryService;
     @Mock private CurrentActorProvider currentActorProvider;
     @Mock private CurrentUserProfileProvider currentUserProfileProvider;
-    @Mock private FileService fileService;
+    @Mock private CommunicationFileService communicationFileService;
     @Mock private AuditLogWriter auditLogWriter;
 
     @Test
@@ -82,7 +81,7 @@ class ConversationServiceTest {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter, objectMapper);
+                currentActorProvider, currentUserProfileProvider, communicationFileService, auditLogWriter, objectMapper);
 
         service.appendAsCurrentUser(new ConversationModels.CurrentUserAppendCommand(
                 101L, "新需求", null, null, "client-1", List.of()));
@@ -113,7 +112,7 @@ class ConversationServiceTest {
         when(repository.listAttachments(any())).thenReturn(List.of());
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                currentActorProvider, currentUserProfileProvider, communicationFileService, auditLogWriter,
                 new ObjectMapper().findAndRegisterModules());
 
         ConversationModels.MessagePage page = service.customerMessages(101L, 200L, 2L);
@@ -159,7 +158,7 @@ class ConversationServiceTest {
                         .correctionMessageId(90L).clientMessageId("correction-1").sentAt(LocalDateTime.now()).build()));
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                currentActorProvider, currentUserProfileProvider, communicationFileService, auditLogWriter,
                 new ObjectMapper().findAndRegisterModules());
 
         ConversationModels.CustomerMessageView correction = service.appendAsCurrentUser(
@@ -186,7 +185,7 @@ class ConversationServiceTest {
                 ConversationEntity.builder().id(88L).projectId(101L).status(ConversationStatus.ACTIVE).version(0L).build()));
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                currentActorProvider, currentUserProfileProvider, communicationFileService, auditLogWriter,
                 new ObjectMapper().findAndRegisterModules());
 
         ApiException exception = assertThrows(ApiException.class, () -> service.appendTrustedInternal(

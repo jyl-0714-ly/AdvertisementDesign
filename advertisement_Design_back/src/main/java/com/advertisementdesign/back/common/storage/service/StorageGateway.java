@@ -13,7 +13,7 @@ public interface StorageGateway {
     void store(String bucketName, String objectKey, InputStream inputStream, long contentLength,
                String contentType, StorageVisibility visibility) throws IOException;
 
-    byte[] read(String bucketName, String objectKey) throws IOException;
+    InputStream openStream(String bucketName, String objectKey) throws IOException;
 
     void delete(String bucketName, String objectKey) throws IOException;
 

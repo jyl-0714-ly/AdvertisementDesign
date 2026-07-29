@@ -30,8 +30,8 @@ public class LocalFileStorage implements StorageGateway {
         store(null, objectKey, file.getInputStream(), file.getSize(), file.getContentType(), StorageVisibility.PRIVATE);
     }
 
-    public byte[] read(String objectKey) throws IOException {
-        return read(null, objectKey);
+    public InputStream openStream(String objectKey) throws IOException {
+        return openStream(null, objectKey);
     }
 
     public void delete(String objectKey) throws IOException {
@@ -49,8 +49,8 @@ public class LocalFileStorage implements StorageGateway {
     }
 
     @Override
-    public byte[] read(String bucketName, String objectKey) throws IOException {
-        return Files.readAllBytes(resolve(objectKey));
+    public InputStream openStream(String bucketName, String objectKey) throws IOException {
+        return Files.newInputStream(resolve(objectKey));
     }
 
     @Override
