@@ -10,11 +10,11 @@ public class FileConverter {
         return new FileModels.FileAssetVO(
                 entity.getId(),
                 entity.getOriginalName(),
-                entity.getStorageName(),
+                entity.getObjectKey(),
                 entity.getStorageProvider(),
                 entity.getBucketName(),
                 entity.getObjectKey(),
-                entity.getUrl(),
+                null,
                 entity.getMimeType(),
                 entity.getFileSize(),
                 entity.getFileHash(),

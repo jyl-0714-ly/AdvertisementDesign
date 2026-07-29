@@ -137,7 +137,8 @@ class FileServiceTest {
     private FileAssetEntity activeFile(Long id, Long uploaderId) {
         return FileAssetEntity.builder()
                 .id(id)
-                .uploaderId(uploaderId)
+                .uploaderActorType(com.advertisementdesign.back.identity.model.ActorRef.ActorType.CUSTOMER_USER)
+                .uploaderActorId(uploaderId)
                 .originalName("attachment.pdf")
                 .objectKey("uploads/8/attachment.pdf")
                 .status(FileStatus.ACTIVE)

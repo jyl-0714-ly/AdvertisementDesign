@@ -1,13 +1,25 @@
 package com.advertisementdesign.back.project.controller;
 
 import com.advertisementdesign.back.common.api.Result;
+import com.advertisementdesign.back.project.dto.FirstRequirementRequest;
 import com.advertisementdesign.back.project.model.ProjectModels;
+import com.advertisementdesign.back.project.service.FirstRequirementProjectCreationService;
 import com.advertisementdesign.back.project.service.ProjectQueryService;
+import com.advertisementdesign.back.project.vo.FirstRequirementResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,8 +30,23 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
+@Validated
 public class ProjectController {
     private final ProjectQueryService projectQueryService;
+    private final FirstRequirementProjectCreationService firstRequirementProjectCreationService;
+
+    @Operation(
+            summary = "提交首条有效需求并原子创建项目",
+            description = "无效需求仅返回引导；有效需求在一个事务中创建项目基础记录。相同幂等键重放首次成功结果。")
+    @PostMapping("/from-first-requirement")
+    public Result<FirstRequirementResponse> createFromFirstRequirement(
+            @Parameter(required = true, description = "客户端生成的建项幂等键",
+                    schema = @Schema(minLength = 1, maxLength = 128))
+            @RequestHeader("Idempotency-Key")
+            @NotBlank @Size(max = 128) String idempotencyKey,
+            @Valid @RequestBody FirstRequirementRequest request) {
+        return Result.success(firstRequirementProjectCreationService.create(request, idempotencyKey.strip()));
+    }
 
     @Operation(summary = "当前用户可见项目摘要")
     @GetMapping

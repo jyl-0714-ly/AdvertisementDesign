@@ -6,5 +6,5 @@ export const appSubTitle = '项目协作、案例浏览、消息沟通'
 
 export const navItems = [
   { path: '/projects', label: '我的项目', icon: FolderOpened },
-  { path: '/workbench', label: '需求沟通', icon: ChatDotRound }
+  { path: '/workspace/new', label: '需求沟通', icon: ChatDotRound }
 ] as const

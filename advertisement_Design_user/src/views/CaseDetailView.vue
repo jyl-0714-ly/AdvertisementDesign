@@ -59,7 +59,7 @@ const gallery = computed(() => detail.value?.imageUrls?.filter(url => url.trim()
 const compatibilityDescription = computed(() => detail.value?.description?.trim() || '该案例的项目说明正在整理中。')
 
 function markGalleryFailed(index: number) { failedGallery.value = new Set(failedGallery.value).add(index) }
-function startConsultation() { void router.push(auth.isLoggedIn ? '/workbench' : { path: '/login', query: { redirect: '/workbench' } }) }
+function startConsultation() { void router.push(auth.isLoggedIn ? '/workspace/new' : { path: '/login', query: { redirect: '/workspace/new' } }) }
 function backToPortfolio() {
   const returnLocation = getPortfolioReturnLocation()
   if (!returnLocation) { void router.push({ path: '/', hash: '#portfolio' }); return }

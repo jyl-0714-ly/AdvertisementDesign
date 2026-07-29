@@ -68,7 +68,7 @@ const service = computed(() => serviceBySlug[String(route.params.slug)] || defau
 const serviceIndex = computed(() => Math.max(serviceDefinitions.findIndex(item => item.slug === service.value.slug), 0))
 const relatedCases = computed(() => cases.value.filter(item => caseMatchesService(item.serviceType, service.value)).slice(0, 3))
 const workflow = [{ title: '需求沟通', description: '明确业务背景、目标与项目边界。' }, { title: '策略提案', description: '形成方向建议、计划与报价。' }, { title: '设计执行', description: '推进核心方案并持续沟通。' }, { title: '修改确认', description: '根据共识优化并完成定稿。' }, { title: '交付落地', description: '交付文件、规范与后续支持。' }]
-function startConsultation() { void router.push(auth.isLoggedIn ? '/workbench' : { path: '/login', query: { redirect: '/workbench' } }) }
+function startConsultation() { void router.push(auth.isLoggedIn ? '/workspace/new' : { path: '/login', query: { redirect: '/workspace/new' } }) }
 function viewAllCases() { if (!auth.isLoggedIn) { ElMessage.info('登录后查看更多案例'); void router.push({ path: '/login', query: { redirect: '/portfolio' } }); return }; void router.push('/portfolio') }
 function openCase(id: number) { rememberPortfolioPosition(route.fullPath); void router.push(`/cases/${id}`) }
 function markCoverFailed(id: number) { failedCovers.value = new Set(failedCovers.value).add(id) }

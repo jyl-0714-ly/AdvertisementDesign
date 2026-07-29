@@ -5,6 +5,8 @@ import com.advertisementdesign.back.project.entity.CustomerProjectMemberEntity;
 import com.advertisementdesign.back.project.entity.ProjectAssignmentEntity;
 import com.advertisementdesign.back.project.entity.ProjectEntity;
 import com.advertisementdesign.back.project.model.ProjectModels;
+import com.advertisementdesign.back.project.vo.FirstRequirementResponse;
+import com.advertisementdesign.back.workflow.enums.StageCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -53,6 +55,49 @@ public class ProjectConverter {
                 parseScopes(entity.getAuthorizationScope()), entity.getStatus(), initiatedBy, entity.getAcceptedAt(),
                 entity.getEffectiveFrom(), entity.getEffectiveTo(), entity.getVersion(),
                 entity.getCreatedAt(), entity.getUpdatedAt());
+    }
+
+    public FirstRequirementResponse invalidRequirement(String guidance) {
+        return new FirstRequirementResponse(
+                FirstRequirementResponse.Status.INVALID_REQUIREMENT,
+                null, null, null, null, guidance);
+    }
+
+    public FirstRequirementResponse projectCreated(Long projectId, Long conversationId,
+                                                   String projectName, StageCode currentStage) {
+        return new FirstRequirementResponse(
+                FirstRequirementResponse.Status.PROJECT_CREATED,
+                projectId, conversationId, projectName, currentStage, null);
+    }
+
+    public FirstRequirementResponse idempotentReplay(Map<String, Object> snapshot) {
+        return new FirstRequirementResponse(
+                FirstRequirementResponse.Status.IDEMPOTENT_REPLAY,
+                requiredLong(snapshot, "projectId"),
+                requiredLong(snapshot, "conversationId"),
+                requiredString(snapshot, "projectName"),
+                StageCode.valueOf(requiredString(snapshot, "currentStage")),
+                null);
+    }
+
+    public Map<String, Object> firstRequirementSnapshot(FirstRequirementResponse response) {
+        return Map.of(
+                "projectId", response.projectId(),
+                "conversationId", response.conversationId(),
+                "projectName", response.projectName(),
+                "currentStage", response.currentStage().name());
+    }
+
+    private Long requiredLong(Map<String, Object> snapshot, String key) {
+        Object value = snapshot == null ? null : snapshot.get(key);
+        if (value instanceof Number number) return number.longValue();
+        throw new IllegalStateException("Invalid idempotency snapshot: " + key);
+    }
+
+    private String requiredString(Map<String, Object> snapshot, String key) {
+        Object value = snapshot == null ? null : snapshot.get(key);
+        if (value instanceof String text && !text.isBlank()) return text;
+        throw new IllegalStateException("Invalid idempotency snapshot: " + key);
     }
 
     public Set<String> parseScopes(String json) {

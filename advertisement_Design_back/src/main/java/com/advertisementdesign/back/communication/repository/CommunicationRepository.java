@@ -26,6 +26,14 @@ public class CommunicationRepository {
     private final MessageAttachmentMapper attachmentMapper;
     private final ConversationReadStateMapper readStateMapper;
 
+    public ConversationEntity createConversation(ConversationEntity conversation) {
+        if (conversation.getId() != null) {
+            throw new IllegalArgumentException("New conversation must not have an id");
+        }
+        requireInserted(conversationMapper.insert(conversation));
+        return conversation;
+    }
+
     public Optional<ConversationEntity> findConversationByProjectId(Long projectId) {
         return Optional.ofNullable(conversationMapper.selectOne(new LambdaQueryWrapper<ConversationEntity>()
                 .eq(ConversationEntity::getProjectId, projectId).last("LIMIT 1")));

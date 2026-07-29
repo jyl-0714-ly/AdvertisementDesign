@@ -5,6 +5,7 @@ import lombok.Getter;
 @Getter
 public enum StorageScene {
     GENERAL_PRIVATE(StorageVisibility.PRIVATE, "general"),
+    FIRST_REQUIREMENT_DRAFT(StorageVisibility.PRIVATE, "requirements/drafts"),
     PORTFOLIO_COVER_PUBLIC(StorageVisibility.PUBLIC, "portfolio/covers"),
     PORTFOLIO_DETAIL_PUBLIC(StorageVisibility.PUBLIC, "portfolio/details"),
     USER_AVATAR_PUBLIC(StorageVisibility.PUBLIC, "avatars"),

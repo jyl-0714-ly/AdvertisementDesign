@@ -6,10 +6,13 @@ import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.config.StorageProperties;
 import com.advertisementdesign.back.common.storage.converter.FileConverter;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
+import com.advertisementdesign.back.common.storage.enums.FileBusinessScope;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
 import com.advertisementdesign.back.common.storage.enums.StorageProvider;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.enums.StorageVisibility;
+import com.advertisementdesign.back.common.storage.enums.StorageZone;
+import com.advertisementdesign.back.identity.model.ActorRef;
 import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.communication.service.ConversationAccessService;
@@ -101,20 +104,31 @@ public class FileService {
         String storageName = UUID.randomUUID() + "-" + safeName;
         String objectKey = scene.getKeySegment() + "/" + currentUser.id() + "/" + storageName;
         String bucketName = gateway.bucketName(visibility);
-        String publicUrl = gateway.publicUrl(bucketName, objectKey, visibility).orElse(null);
         LocalDateTime now = LocalDateTime.now();
         FileAssetEntity asset = FileAssetEntity.builder()
-                .uploaderId(currentUser.id())
+                .uploaderActorType(actorType(currentUser))
+                .uploaderActorId(currentUser.id())
+                .organizationId(null)
+                .projectId(null)
+                .businessScope(scene.isPublic()
+                        ? FileBusinessScope.PUBLIC_PORTFOLIO
+                        : FileBusinessScope.PRIVATE_DRAFT)
+                .visibility(scene.isPublic()
+                        ? StorageVisibility.PUBLIC
+                        : StorageVisibility.INTERNAL)
                 .originalName(safeName)
-                .storageName(storageName)
                 .storageProvider(gateway.provider())
+                .storageZone(scene.isPublic() ? StorageZone.PUBLIC : StorageZone.PRIVATE)
                 .bucketName(bucketName)
                 .objectKey(objectKey)
-                .url(publicUrl)
                 .mimeType(normalizeMimeType(file.getContentType()))
+                .fileExtension(extensionOf(safeName))
                 .fileSize((long) content.length)
+                .hashAlgorithm("SHA256")
                 .fileHash(sha256(content))
+                .legalHold(false)
                 .status(FileStatus.ACTIVE)
+                .version(0L)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -149,7 +163,7 @@ public class FileService {
         FileAssetEntity asset = storageRepository.findById(fileId)
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
         UserProfile currentUser = currentUserProfileProvider.currentUserProfile();
-        if (!Objects.equals(asset.getUploaderId(), currentUser.id())) {
+        if (!Objects.equals(asset.getUploaderActorId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
         try {
@@ -232,6 +246,19 @@ public class FileService {
         }
     }
 
+    private String extensionOf(String safeName) {
+        int index = safeName.lastIndexOf('.');
+        return index < 0 ? null : safeName.substring(index + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private ActorRef.ActorType actorType(UserProfile user) {
+        return switch (user.role()) {
+            case CUSTOMER -> ActorRef.ActorType.CUSTOMER_USER;
+            case DESIGNER -> ActorRef.ActorType.DESIGNER_USER;
+            case ADMIN -> ActorRef.ActorType.ADMIN_USER;
+        };
+    }
+
     private String normalizeMimeType(String contentType) {
         if (!StringUtils.hasText(contentType)) {
             return null;
@@ -260,7 +287,7 @@ public class FileService {
             if (!canAccessAssociatedFile(fileId, projectAccess)) {
                 throw new ApiException(ApiErrorCode.FORBIDDEN);
             }
-        } else if (!Objects.equals(asset.getUploaderId(), currentUser.id())) {
+        } else if (!Objects.equals(asset.getUploaderActorId(), currentUser.id())) {
             throw new ApiException(ApiErrorCode.FORBIDDEN);
         }
         return asset;

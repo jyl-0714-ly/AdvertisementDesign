@@ -40,7 +40,7 @@ import { roleLabel } from '@/utils/displayLabels'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const fullScreenMode = computed(() => route.path === '/workbench')
+const fullScreenMode = computed(() => route.meta.layout === 'workspace')
 
 async function logout() {
   await ElMessageBox.confirm('确认退出当前账号？', '退出登录', { type: 'warning' })

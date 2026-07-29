@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CustomerProjectMemberRepository {
+    CustomerProjectMemberEntity save(CustomerProjectMemberEntity member);
+
     Optional<CustomerProjectMemberEntity> findActiveByProjectAndOrganizationMember(
             Long projectId, Long organizationId, Long organizationMemberId);
 

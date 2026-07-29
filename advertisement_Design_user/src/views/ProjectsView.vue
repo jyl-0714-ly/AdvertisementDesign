@@ -2,7 +2,7 @@
   <div class="project-hub" v-loading="loading">
     <header class="project-hub-head">
       <div><span class="workspace-eyebrow">PROJECTS</span><h1>我的项目</h1><p>按当前阶段查看所有协作中的设计项目。</p></div>
-      <button type="button" class="go-workbench" @click="router.push('/workbench')"><el-icon><ChatDotRound /></el-icon>进入需求沟通</button>
+      <button type="button" class="go-workbench" @click="router.push('/workspace/new')"><el-icon><ChatDotRound /></el-icon>进入需求沟通</button>
     </header>
 
     <section v-if="projects.length" class="project-group">
@@ -14,7 +14,7 @@
           <p>{{ project.description || '暂无项目说明' }}</p>
           <div class="project-stage-row"><span>当前阶段</span><strong>{{ project.currentStageName }}</strong></div>
           <div class="project-progress"><span :style="{ width: `${project.progress}%` }"></span></div>
-          <footer><b>{{ project.progress }}%</b><span>{{ project.designerName || '设计师' }}</span><el-icon><ArrowRight /></el-icon></footer>
+          <footer><b>{{ project.progress }}%</b><span>项目服务团队</span><el-icon><ArrowRight /></el-icon></footer>
         </article>
       </div>
     </section>

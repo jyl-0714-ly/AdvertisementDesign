@@ -2,7 +2,6 @@
   <div class="designer-projects" v-loading="loading">
     <header class="designer-project-head">
       <div><span class="designer-eyebrow">PROJECT MANAGEMENT</span><h1>项目管理</h1><p>跟进负责项目、推进阶段确认，并集中处理待交付内容。</p></div>
-      <button type="button" class="designer-workbench-link" @click="router.push('/workbench')"><el-icon><ChatDotRound /></el-icon>进入客户沟通</button>
     </header>
     <section class="designer-project-stats"><div><span>负责项目</span><strong>{{ projects.length }}</strong></div><div><span>等待客户确认</span><strong>{{ pendingCount }}</strong></div><div><span>当前进行中</span><strong>{{ inProgressCount }}</strong></div></section>
     <div class="designer-filter"><el-input v-model="filters.keyword" :prefix-icon="Search" clearable placeholder="搜索项目名称或客户" /><el-select v-model="filters.status" clearable placeholder="项目状态"><el-option label="进行中" value="IN_PROGRESS" /><el-option label="已完成" value="COMPLETED" /><el-option label="已暂停" value="PAUSED" /></el-select><button type="button" @click="load">筛选</button><button type="button" class="reset" @click="Object.assign(filters, { keyword: '', status: '' }); load()">重置</button></div>
@@ -15,7 +14,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowRight, ChatDotRound, Search } from '@element-plus/icons-vue'
+import { ArrowRight, Search } from '@element-plus/icons-vue'
 import { listProjects } from '@/api'
 import type { ProjectVO } from '@/models'
 import { projectStatusLabel } from '@/utils/displayLabels'

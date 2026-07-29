@@ -7,6 +7,7 @@ import com.advertisementdesign.back.identity.mapper.OrganizationMemberMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -37,6 +38,27 @@ public class OrganizationMembershipService {
         return Optional.ofNullable(member).map(value ->
                 new ActiveOrganizationMember(value.getId(), value.getOrganizationId(), value.getUserId(),
                         value.getMemberRole(), value.getVersion()));
+    }
+
+    public List<OrganizationContext> listActiveOrganizations(Long userId) {
+        return memberMapper.selectList(Wrappers.<OrganizationMemberEntity>lambdaQuery()
+                        .eq(OrganizationMemberEntity::getUserId, userId)
+                        .eq(OrganizationMemberEntity::getStatus, "ACTIVE")
+                        .orderByAsc(OrganizationMemberEntity::getId))
+                .stream()
+                .map(member -> {
+                    OrganizationEntity organization = organizationMapper.selectById(member.getOrganizationId());
+                    if (organization == null || !"ACTIVE".equals(organization.getStatus())) {
+                        return null;
+                    }
+                    return new OrganizationContext(
+                            organization.getId(), organization.getName(), member.getMemberRole());
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    public record OrganizationContext(Long id, String name, String memberRole) {
     }
 
     public record ActiveOrganization(Long id, Long version) {

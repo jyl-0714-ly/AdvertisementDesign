@@ -1,6 +1,7 @@
 package com.advertisementdesign.back.common.storage.controller;
 
 import com.advertisementdesign.back.common.storage.model.FileModels;
+import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.api.Result;
 import com.advertisementdesign.back.common.storage.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,15 @@ public class FileController {
     @PostMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<FileModels.FileAssetVO> upload(@RequestPart("file") MultipartFile file) {
         return Result.success(fileService.upload(file));
+    }
+
+    @Operation(
+            summary = "上传首条需求草稿附件",
+            description = "仅创建当前客户拥有的私有文件草稿，不创建项目或会话；首条有效需求建项时原子认领")
+    @PostMapping(value = "/projects/first-requirement-drafts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<FileModels.FileAssetVO> uploadFirstRequirementDraft(
+            @RequestPart("file") MultipartFile file) {
+        return Result.success(fileService.upload(file, StorageScene.FIRST_REQUIREMENT_DRAFT));
     }
 
     @Operation(summary = "文件详情")

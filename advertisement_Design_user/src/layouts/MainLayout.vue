@@ -1,12 +1,12 @@
 <template>
-  <div class="workspace-shell" :class="{ 'workspace-shell--workbench': route.path === '/workbench' }">
+  <div class="workspace-shell" :class="{ 'workspace-shell--workbench': route.meta.layout === 'workspace' }">
     <header class="workspace-header">
       <button class="workspace-brand" type="button" @click="router.push('/')">
         <span>AD</span><strong>{{ appName }}</strong>
       </button>
       <nav class="workspace-nav">
         <button type="button" :class="{ active: route.path === '/portfolio' }" @click="router.push('/portfolio')">作品集</button>
-        <button v-for="item in navItems" :key="item.path" type="button" :class="{ active: route.path === item.path || route.path.startsWith(`${item.path}/`) }" @click="router.push(item.path)">
+        <button v-for="item in navItems" :key="item.path" type="button" :class="{ active: item.path === '/workspace/new' ? route.path.startsWith('/workspace/') : route.path === item.path || route.path.startsWith(`${item.path}/`) }" @click="router.push(item.path)">
           <el-icon><component :is="item.icon" /></el-icon>{{ item.label }}
         </button>
       </nav>
@@ -28,7 +28,7 @@
         <button type="button" class="logout-button" @click="logout">退出</button>
       </div>
     </header>
-    <main class="workspace-main" :class="{ 'workspace-main--workbench': route.path === '/workbench' }"><router-view :key="route.fullPath" /></main>
+    <main class="workspace-main" :class="{ 'workspace-main--workbench': route.meta.layout === 'workspace' }"><router-view :key="route.fullPath" /></main>
   </div>
 </template>
 
