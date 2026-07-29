@@ -45,17 +45,41 @@ public class WorkflowQueryService {
     }
 
     private Set<String> allowedActions(Long projectId, StageCode stageCode, StageStatus status) {
-        if (status == StageStatus.COMPLETED || status == StageStatus.SUSPENDED) return Set.of();
-        ProjectAuthorizationService.ProjectAction action = switch (stageCode) {
+        if (status == StageStatus.NOT_STARTED) return Set.of();
+        boolean canUpdate = authorizationService.authorize(
+                projectId, ProjectAuthorizationService.ProjectAction.UPDATE_PROJECT).allowed();
+        if (status == StageStatus.SUSPENDED) {
+            return canUpdate ? Set.of("RESUME") : Set.of();
+        }
+        if (status == StageStatus.COMPLETED) {
+            return canUpdate ? Set.of("REOPEN") : Set.of();
+        }
+
+        ProjectAuthorizationService.ProjectAction completionAction = switch (stageCode) {
             case REQUIREMENT_GUIDE -> ProjectAuthorizationService.ProjectAction.CONFIRM_REQUIREMENT;
-            case CONTRACT_PREPAYMENT -> ProjectAuthorizationService.ProjectAction.SIGN_CONTRACT;
+            case CONTRACT_PREPAYMENT -> ProjectAuthorizationService.ProjectAction.MANAGE_PAYMENT;
             case RESEARCH_REPORT -> ProjectAuthorizationService.ProjectAction.CONFIRM_REPORT;
             case SKETCH_STYLE, REVIEW_FINAL -> ProjectAuthorizationService.ProjectAction.CONFIRM_DESIGN;
             case DELIVERY_FINAL_PAYMENT -> ProjectAuthorizationService.ProjectAction.RECEIVE_DELIVERY;
-            case AFTER_SALE_REPURCHASE -> null;
+            case AFTER_SALE_REPURCHASE -> ProjectAuthorizationService.ProjectAction.UPDATE_PROJECT;
         };
-        return action != null && authorizationService.authorize(projectId, action).allowed()
-                ? Set.of(action.name()) : Set.of();
+        boolean canComplete = authorizationService.authorize(projectId, completionAction).allowed();
+        if (stageCode == StageCode.REQUIREMENT_GUIDE) {
+            canComplete = canComplete && projectQueryService.requireFullDetail(projectId)
+                    .confirmedRequirementVersionId() != null;
+        } else if (stageCode != StageCode.AFTER_SALE_REPURCHASE) {
+            canComplete = false;
+        }
+
+        java.util.LinkedHashSet<String> actions = new java.util.LinkedHashSet<>();
+        if (canUpdate) {
+            actions.add("START_PROCESSING");
+            actions.add("WAIT_FOR_CUSTOMER");
+            actions.add("REQUEST_REVIEW");
+            actions.add("SUSPEND");
+        }
+        if (canComplete) actions.add("COMPLETE");
+        return Set.copyOf(actions);
     }
 
     public List<WorkflowModels.StageEventView> history(Long projectId, Long stageInstanceId) {

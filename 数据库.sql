@@ -469,6 +469,7 @@ CREATE TABLE `project_stage_event` (
   `related_object_version` INT DEFAULT NULL COMMENT '触发对象版本号',
   `actor_type` VARCHAR(32) NOT NULL COMMENT '真实操作主体类型',
   `actor_id` BIGINT DEFAULT NULL COMMENT '真实主体 ID；系统事件可为空',
+  `source` VARCHAR(32) NOT NULL COMMENT '命令来源：CUSTOMER_UI / DESIGNER_UI / ADMIN_UI / AUTOMATION / EXTERNAL_EVENT / SYSTEM',
   `authorization_basis` JSON DEFAULT NULL COMMENT '权限或前置条件依据快照',
   `reason` VARCHAR(1000) DEFAULT NULL COMMENT '原因或说明',
   `request_id` VARCHAR(128) NOT NULL COMMENT '关联请求 ID',
@@ -482,6 +483,7 @@ CREATE TABLE `project_stage_event` (
   CONSTRAINT `chk_project_stage_event_type` CHECK (`event_type` IN ('ACTIVATED', 'WAITING', 'PROCESSING', 'REVIEW_REQUESTED', 'COMPLETED', 'REOPENED', 'SUSPENDED', 'RESUMED')),
   CONSTRAINT `chk_project_stage_event_to_status` CHECK (`to_status` IN ('NOT_STARTED', 'ACTIVE', 'WAITING_CUSTOMER', 'PROCESSING', 'UNDER_REVIEW', 'CHANGE_PROCESSING', 'COMPLETED', 'SUSPENDED')),
   CONSTRAINT `chk_project_stage_event_actor` CHECK (`actor_type` IN ('CUSTOMER_USER', 'DESIGNER_USER', 'ADMIN_USER', 'COORDINATOR_AGENT', 'STAGE_AGENT', 'SYSTEM_EVENT')),
+  CONSTRAINT `chk_project_stage_event_source` CHECK (`source` IN ('CUSTOMER_UI', 'DESIGNER_UI', 'ADMIN_UI', 'AUTOMATION', 'EXTERNAL_EVENT', 'SYSTEM')),
   CONSTRAINT `chk_project_stage_event_activation` CHECK (`activation_number` >= 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='追加式阶段事实；无 updated_at，不允许普通业务接口修改或删除';
 

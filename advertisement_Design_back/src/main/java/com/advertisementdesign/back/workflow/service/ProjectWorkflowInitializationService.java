@@ -4,6 +4,7 @@ import com.advertisementdesign.back.identity.model.ActorRef;
 import com.advertisementdesign.back.workflow.entity.ProjectStageEventEntity;
 import com.advertisementdesign.back.workflow.entity.ProjectStageInstanceEntity;
 import com.advertisementdesign.back.workflow.enums.StageCode;
+import com.advertisementdesign.back.workflow.enums.StageEventSource;
 import com.advertisementdesign.back.workflow.enums.StageEventType;
 import com.advertisementdesign.back.workflow.enums.StageStatus;
 import com.advertisementdesign.back.workflow.repository.WorkflowRepository;
@@ -41,6 +42,7 @@ public class ProjectWorkflowInitializationService {
                 .activationNumber(1)
                 .actorType(command.actor().type())
                 .actorId(command.actor().actorId())
+                .source(StageEventSource.CUSTOMER_UI)
                 .authorizationBasis(command.authorizationBasis())
                 .reason("首条有效设计需求已提交")
                 .requestId(command.requestId())

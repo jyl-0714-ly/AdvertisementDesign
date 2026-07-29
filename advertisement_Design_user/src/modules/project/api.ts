@@ -125,11 +125,13 @@ export async function getProjectWorkspace(projectId: number, signal?: AbortSigna
 
 function toAllowedAction(code: string) {
   const labels: Record<string, { label: string; description: string }> = {
-    CONFIRM_REQUIREMENT: { label: '确认需求版本', description: '确认当前需求版本后，项目将按已确认内容继续。' },
-    SIGN_CONTRACT: { label: '查看签署事项', description: '进入当前合同签署事项。' },
-    CONFIRM_REPORT: { label: '确认调研报告', description: '确认当前已发布的调研报告版本。' },
-    CONFIRM_DESIGN: { label: '确认设计版本', description: '确认当前已审核并发布的设计版本。' },
-    RECEIVE_DELIVERY: { label: '确认接收交付', description: '确认接收当前交付版本。' }
+    START_PROCESSING: { label: '开始处理', description: '项目服务团队开始处理当前阶段事项。' },
+    WAIT_FOR_CUSTOMER: { label: '等待客户反馈', description: '当前阶段等待您补充或确认信息。' },
+    REQUEST_REVIEW: { label: '进入审核', description: '将当前阶段事项提交审核。' },
+    COMPLETE: { label: '完成当前阶段', description: '按当前已确认的业务事实完成本阶段。' },
+    SUSPEND: { label: '暂停当前阶段', description: '暂停当前阶段，恢复后可继续推进。' },
+    RESUME: { label: '恢复当前阶段', description: '恢复已暂停的当前阶段。' },
+    REOPEN: { label: '重新开启阶段', description: '保留历史记录并开始新的处理轮次。' }
   }
   return { code, ...(labels[code] || { label: '查看当前事项', description: '查看当前阶段可办理的事项。' }), enabled: true }
 }

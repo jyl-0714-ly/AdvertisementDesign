@@ -29,6 +29,7 @@ public class WorkflowConverter {
                 entity.getId(), entity.getProjectId(), entity.getStageInstanceId(), entity.getStageCode(),
                 entity.getEventType(), entity.getFromStatus(), entity.getToStatus(), entity.getActivationNumber(),
                 entity.getRelatedObjectType(), entity.getRelatedObjectId(), entity.getRelatedObjectVersion(), actor,
-                entity.getAuthorizationBasis(), entity.getReason(), entity.getRequestId(), entity.getOccurredAt());
+                entity.getSource(), entity.getAuthorizationBasis(), entity.getReason(), entity.getRequestId(),
+                entity.getOccurredAt());
     }
 }

@@ -2,6 +2,7 @@ package com.advertisementdesign.back.workflow.model;
 
 import com.advertisementdesign.back.identity.model.ActorRef;
 import com.advertisementdesign.back.workflow.enums.StageCode;
+import com.advertisementdesign.back.workflow.enums.StageEventSource;
 import com.advertisementdesign.back.workflow.enums.StageEventType;
 import com.advertisementdesign.back.workflow.enums.StageStatus;
 
@@ -35,6 +36,13 @@ public final class WorkflowModels {
         }
     }
 
+    public record WorkflowCommandResult(
+            StageInstanceView stage,
+            StageEventView event,
+            boolean idempotentReplay
+    ) {
+    }
+
     public record StageEventView(
             Long id, Long projectId, Long stageInstanceId, StageCode stageCode,
             StageEventType eventType, StageStatus fromStatus, StageStatus toStatus,
@@ -46,7 +54,8 @@ public final class WorkflowModels {
             Long id, Long projectId, Long stageInstanceId, StageCode stageCode,
             StageEventType eventType, StageStatus fromStatus, StageStatus toStatus,
             Integer activationNumber, String relatedObjectType, Long relatedObjectId,
-            Integer relatedObjectVersion, ActorRef actor, String authorizationBasis,
+            Integer relatedObjectVersion, ActorRef actor, StageEventSource source,
+            String authorizationBasis,
             String reason, String requestId, LocalDateTime occurredAt) {
     }
 }

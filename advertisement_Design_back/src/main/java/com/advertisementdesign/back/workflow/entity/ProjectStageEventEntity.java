@@ -2,6 +2,7 @@ package com.advertisementdesign.back.workflow.entity;
 
 import com.advertisementdesign.back.identity.model.ActorRef;
 import com.advertisementdesign.back.workflow.enums.StageCode;
+import com.advertisementdesign.back.workflow.enums.StageEventSource;
 import com.advertisementdesign.back.workflow.enums.StageEventType;
 import com.advertisementdesign.back.workflow.enums.StageStatus;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -34,6 +35,7 @@ public class ProjectStageEventEntity {
     private Integer relatedObjectVersion;
     private ActorRef.ActorType actorType;
     private Long actorId;
+    private StageEventSource source;
     private String authorizationBasis;
     private String reason;
     private String requestId;

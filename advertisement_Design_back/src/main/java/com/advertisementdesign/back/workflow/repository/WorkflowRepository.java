@@ -6,7 +6,12 @@ import com.advertisementdesign.back.workflow.entity.ProjectStageEventEntity;
 import com.advertisementdesign.back.workflow.entity.ProjectStageInstanceEntity;
 import com.advertisementdesign.back.workflow.mapper.ProjectStageEventMapper;
 import com.advertisementdesign.back.workflow.mapper.ProjectStageInstanceMapper;
+import com.advertisementdesign.back.workflow.enums.StageCode;
+import com.advertisementdesign.back.workflow.enums.StageStatus;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -29,6 +34,40 @@ public class WorkflowRepository {
         return Optional.ofNullable(instanceMapper.selectOne(new LambdaQueryWrapper<ProjectStageInstanceEntity>()
                 .eq(ProjectStageInstanceEntity::getProjectId, projectId)
                 .eq(ProjectStageInstanceEntity::getId, stageInstanceId).last("LIMIT 1")));
+    }
+
+    public Optional<ProjectStageInstanceEntity> findStage(Long projectId, StageCode stageCode) {
+        return Optional.ofNullable(instanceMapper.selectOne(new LambdaQueryWrapper<ProjectStageInstanceEntity>()
+                .eq(ProjectStageInstanceEntity::getProjectId, projectId)
+                .eq(ProjectStageInstanceEntity::getStageCode, stageCode).last("LIMIT 1")));
+    }
+
+    public Optional<ProjectStageEventEntity> findEventByRequestId(String requestId) {
+        return Optional.ofNullable(eventMapper.selectOne(new LambdaQueryWrapper<ProjectStageEventEntity>()
+                .eq(ProjectStageEventEntity::getRequestId, requestId).last("LIMIT 1")));
+    }
+
+    public boolean transition(Long projectId, Long stageInstanceId, Long expectedVersion,
+                              StageStatus expectedStatus, StageStatus targetStatus,
+                              Integer activationCount, LocalDateTime activatedAt,
+                              LocalDateTime completedAt, LocalDateTime updatedAt) {
+        LambdaUpdateWrapper<ProjectStageInstanceEntity> update =
+                new LambdaUpdateWrapper<ProjectStageInstanceEntity>()
+                        .eq(ProjectStageInstanceEntity::getProjectId, projectId)
+                        .eq(ProjectStageInstanceEntity::getId, stageInstanceId)
+                        .eq(ProjectStageInstanceEntity::getVersion, expectedVersion)
+                        .eq(ProjectStageInstanceEntity::getStatus, expectedStatus)
+                        .set(ProjectStageInstanceEntity::getStatus, targetStatus)
+                        .set(ProjectStageInstanceEntity::getVersion, expectedVersion + 1)
+                        .set(ProjectStageInstanceEntity::getUpdatedAt, updatedAt);
+        if (activationCount != null) {
+            update.set(ProjectStageInstanceEntity::getActivationCount, activationCount);
+        }
+        if (activatedAt != null) {
+            update.set(ProjectStageInstanceEntity::getActivatedAt, activatedAt);
+        }
+        update.set(ProjectStageInstanceEntity::getCompletedAt, completedAt);
+        return instanceMapper.update(null, update) == 1;
     }
 
     public List<ProjectStageEventEntity> findEvents(Long projectId, Long stageInstanceId) {
