@@ -26,6 +26,14 @@ public class ConversationConverter {
                 attachments.stream().map(this::toAttachment).toList(), entity.getSentAt());
     }
 
+    public ConversationModels.CustomerMessageView toCustomerMessageView(
+            MessageEntity entity, List<ConversationModels.AttachmentView> attachments) {
+        return new ConversationModels.CustomerMessageView(
+                entity.getId(), entity.getConversationId(), entity.getMessageType(), entity.getContent(),
+                entity.getCustomerDisplayIdentity(), entity.getReplyToMessageId(), entity.getCorrectionMessageId(),
+                attachments, entity.getSentAt());
+    }
+
     public ConversationModels.InternalMessageView toInternalMessage(
             MessageEntity entity, List<MessageAttachmentEntity> attachments) {
         return new ConversationModels.InternalMessageView(
@@ -44,6 +52,7 @@ public class ConversationConverter {
 
     private ConversationModels.AttachmentView toAttachment(MessageAttachmentEntity entity) {
         return new ConversationModels.AttachmentView(
-                entity.getId(), entity.getFileAssetId(), entity.getDisplayOrder(), entity.getCreatedAt());
+                entity.getId(), entity.getFileAssetId(), entity.getDisplayOrder(),
+                null, null, null, null, entity.getCreatedAt());
     }
 }

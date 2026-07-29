@@ -26,6 +26,12 @@ public class WorkflowController {
         return Result.success(queryService.stages(projectId));
     }
 
+    @Operation(summary = "查询当前阶段工作台投影")
+    @GetMapping("/current")
+    public Result<WorkflowModels.CurrentStageWorkspaceView> current(@PathVariable Long projectId) {
+        return Result.success(queryService.currentStage(projectId));
+    }
+
     @Operation(summary = "查询阶段历史事件")
     @GetMapping("/{stageInstanceId}/events")
     public Result<List<WorkflowModels.StageEventView>> history(

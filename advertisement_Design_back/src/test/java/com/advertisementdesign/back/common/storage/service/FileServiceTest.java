@@ -4,14 +4,17 @@ import com.advertisementdesign.back.common.storage.converter.FileConverter;
 import com.advertisementdesign.back.identity.service.CurrentUserProfileProvider;
 import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.common.storage.entity.FileAssetEntity;
+import com.advertisementdesign.back.common.storage.enums.FileBusinessScope;
 import com.advertisementdesign.back.common.storage.enums.FileStatus;
 import com.advertisementdesign.back.common.storage.enums.StorageScene;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.communication.service.ConversationAccessService;
 import com.advertisementdesign.back.identity.enums.UserStatus;
+import com.advertisementdesign.back.identity.model.ActorRef;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
+import com.advertisementdesign.back.project.service.ProjectQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +40,8 @@ class FileServiceTest {
     @Mock
     private ProjectAuthorizationService projectAuthorizationService;
     @Mock
+    private ProjectQueryService projectQueryService;
+    @Mock
     private LocalFileStorage localFileStorage;
     @Mock
     private FileConverter converter;
@@ -48,8 +53,40 @@ class FileServiceTest {
     @BeforeEach
     void setUp() {
         fileService = new FileService(
-                storageRepository, conversationAccessService, projectAuthorizationService,
+                storageRepository, conversationAccessService, projectAuthorizationService, projectQueryService,
                 localFileStorage, converter, authService);
+    }
+
+    @Test
+    void projectMessageDraftRejectsAttachmentUploadedByAnotherUser() {
+        FileAssetEntity asset = FileAssetEntity.builder()
+                .id(9L).uploaderActorType(ActorRef.ActorType.CUSTOMER_USER).uploaderActorId(99L)
+                .organizationId(20L).businessScope(FileBusinessScope.PRIVATE_DRAFT)
+                .status(FileStatus.ACTIVE).version(0L).build();
+        when(storageRepository.findById(9L)).thenReturn(Optional.of(asset));
+
+        ApiException exception = assertThrows(ApiException.class, () -> fileService.claimProjectMessageDrafts(
+                101L, 20L, new ActorRef(ActorRef.ActorType.CUSTOMER_USER, 7L), java.util.List.of(9L)));
+
+        assertEquals(403, exception.getCode());
+        verify(storageRepository, never()).claimProjectMessageDraft(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void projectMessageDraftRejectsAttachmentFromAnotherOrganizationOrProjectContext() {
+        FileAssetEntity asset = FileAssetEntity.builder()
+                .id(10L).uploaderActorType(ActorRef.ActorType.CUSTOMER_USER).uploaderActorId(7L)
+                .organizationId(21L).businessScope(FileBusinessScope.PRIVATE_DRAFT)
+                .status(FileStatus.ACTIVE).version(0L).build();
+        when(storageRepository.findById(10L)).thenReturn(Optional.of(asset));
+
+        ApiException exception = assertThrows(ApiException.class, () -> fileService.claimProjectMessageDrafts(
+                101L, 20L, new ActorRef(ActorRef.ActorType.CUSTOMER_USER, 7L), java.util.List.of(10L)));
+
+        assertEquals(403, exception.getCode());
     }
 
     @Test

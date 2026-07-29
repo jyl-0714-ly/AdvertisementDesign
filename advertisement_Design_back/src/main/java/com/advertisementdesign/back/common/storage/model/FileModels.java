@@ -20,6 +20,16 @@ public final class FileModels {
     ) {
     }
 
+    @Schema(description = "客户安全文件元数据")
+    public record CustomerSafeFileMetadata(
+            Long id,
+            String name,
+            String mimeType,
+            Long size,
+            String downloadPath
+    ) {
+    }
+
     @Schema(description = "文件视图")
     public record FileAssetVO(
             Long id,

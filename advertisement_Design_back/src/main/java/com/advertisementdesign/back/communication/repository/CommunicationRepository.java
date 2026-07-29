@@ -53,6 +53,12 @@ public class CommunicationRepository {
         return messageMapper.selectList(query);
     }
 
+    public Optional<MessageEntity> findMessageByClientMessageId(Long conversationId, String clientMessageId) {
+        return Optional.ofNullable(messageMapper.selectOne(new LambdaQueryWrapper<MessageEntity>()
+                .eq(MessageEntity::getConversationId, conversationId)
+                .eq(MessageEntity::getClientMessageId, clientMessageId).last("LIMIT 1")));
+    }
+
     public Optional<MessageEntity> findMessage(Long conversationId, Long messageId) {
         return Optional.ofNullable(messageMapper.selectOne(new LambdaQueryWrapper<MessageEntity>()
                 .eq(MessageEntity::getConversationId, conversationId)

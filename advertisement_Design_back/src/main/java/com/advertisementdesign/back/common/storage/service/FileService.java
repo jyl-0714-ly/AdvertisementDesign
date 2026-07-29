@@ -17,9 +17,12 @@ import com.advertisementdesign.back.common.storage.model.FileModels;
 import com.advertisementdesign.back.common.storage.repository.StorageRepository;
 import com.advertisementdesign.back.communication.service.ConversationAccessService;
 import com.advertisementdesign.back.identity.service.IdentityService.UserProfile;
+import com.advertisementdesign.back.project.model.ProjectModels;
 import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
+import com.advertisementdesign.back.project.service.ProjectQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,6 +63,7 @@ public class FileService {
     private final StorageRepository storageRepository;
     private final ConversationAccessService conversationAccessService;
     private final ProjectAuthorizationService projectAuthorizationService;
+    private final ProjectQueryService projectQueryService;
     private final LocalFileStorage localFileStorage;
     private final FileConverter converter;
     private final CurrentUserProfileProvider currentUserProfileProvider;
@@ -69,12 +73,14 @@ public class FileService {
     public FileService(StorageRepository storageRepository,
                        ConversationAccessService conversationAccessService,
                        ProjectAuthorizationService projectAuthorizationService,
+                       ProjectQueryService projectQueryService,
                        LocalFileStorage localFileStorage,
                        FileConverter converter,
                        CurrentUserProfileProvider currentUserProfileProvider) {
         this.storageRepository = storageRepository;
         this.conversationAccessService = conversationAccessService;
         this.projectAuthorizationService = projectAuthorizationService;
+        this.projectQueryService = projectQueryService;
         this.localFileStorage = localFileStorage;
         this.converter = converter;
         this.currentUserProfileProvider = currentUserProfileProvider;
@@ -90,6 +96,58 @@ public class FileService {
     @Transactional
     public FileModels.FileAssetVO upload(MultipartFile file) {
         return upload(file, StorageScene.GENERAL_PRIVATE);
+    }
+
+    @Transactional
+    public FileModels.CustomerSafeFileMetadata uploadProjectMessageDraft(Long projectId, MultipartFile file) {
+        ProjectModels.ProjectContextView project = projectQueryService.findContext(projectId)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        if (!projectAuthorizationService.authorize(projectId, ProjectAuthorizationService.ProjectAction.SEND_MESSAGE).allowed()) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN);
+        }
+        FileModels.FileAssetVO uploaded = upload(file, StorageScene.CONVERSATION_ATTACHMENT);
+        FileAssetEntity asset = storageRepository.findById(uploaded.id())
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        asset.setOrganizationId(project.organizationId());
+        asset.setUpdatedAt(LocalDateTime.now());
+        storageRepository.save(asset);
+        return customerSafeMetadata(asset);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<FileModels.CustomerSafeFileMetadata> claimProjectMessageDrafts(
+            Long projectId, Long organizationId, ActorRef actor, List<Long> fileAssetIds) {
+        List<Long> ids = fileAssetIds == null ? List.of() : fileAssetIds.stream().distinct().toList();
+        if (ids.size() > 10) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "附件数量超过限制");
+        }
+        List<FileAssetEntity> assets = ids.stream().map(id -> storageRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "附件不存在或不可用"))).toList();
+        for (FileAssetEntity asset : assets) {
+            if (asset.getUploaderActorType() != actor.type()
+                    || !Objects.equals(asset.getUploaderActorId(), actor.actorId())) {
+                throw new ApiException(ApiErrorCode.FORBIDDEN.getCode(), "不能关联其他用户上传的附件");
+            }
+            if (!Objects.equals(asset.getOrganizationId(), organizationId)) {
+                throw new ApiException(ApiErrorCode.FORBIDDEN.getCode(), "不能跨组织或跨项目关联附件");
+            }
+            if (asset.getStatus() != FileStatus.ACTIVE
+                    || asset.getBusinessScope() != FileBusinessScope.PRIVATE_DRAFT
+                    || asset.getProjectId() != null) {
+                throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "附件已不可用或已被其他项目使用");
+            }
+        }
+        for (FileAssetEntity asset : assets) {
+            if (!storageRepository.claimProjectMessageDraft(
+                    asset, actor.type().name(), actor.actorId(), organizationId, projectId)) {
+                throw new ApiException(ApiErrorCode.CONFLICT.getCode(), "附件状态已变化，请重新选择");
+            }
+        }
+        return assets.stream().map(this::customerSafeMetadata).toList();
+    }
+
+    public FileModels.CustomerSafeFileMetadata customerSafeMetadata(Long fileId) {
+        return customerSafeMetadata(findAccessibleAsset(fileId));
     }
 
     @Transactional
@@ -272,6 +330,12 @@ public class FileService {
         } catch (Exception cleanupException) {
             original.addSuppressed(cleanupException);
         }
+    }
+
+    private FileModels.CustomerSafeFileMetadata customerSafeMetadata(FileAssetEntity asset) {
+        return new FileModels.CustomerSafeFileMetadata(
+                asset.getId(), asset.getOriginalName(), asset.getMimeType(), asset.getFileSize(),
+                "/api/files/" + asset.getId() + "/download");
     }
 
     private FileAssetEntity findAccessibleAsset(Long fileId) {

@@ -32,6 +32,15 @@ public class StorageRepository {
                 fileAsset.getId(), actorId, organizationId, projectId, fileAsset.getVersion()) == 1;
     }
 
+    public boolean claimProjectMessageDraft(FileAssetEntity fileAsset,
+                                            String actorType,
+                                            Long actorId,
+                                            Long organizationId,
+                                            Long projectId) {
+        return fileAssetMapper.claimProjectMessageDraft(
+                fileAsset.getId(), actorType, actorId, organizationId, projectId, fileAsset.getVersion()) == 1;
+    }
+
     public Optional<FileAssetEntity> findById(Long id) {
         return Optional.ofNullable(fileAssetMapper.selectById(id));
     }

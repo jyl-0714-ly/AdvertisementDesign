@@ -8,11 +8,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @Tag(name = "Project Conversation", description = "项目上下文中的会话与消息查询")
 @RestController
@@ -29,10 +29,21 @@ public class ConversationController {
 
     @Operation(summary = "查询项目会话消息")
     @GetMapping("/messages")
-    public Result<List<ConversationModels.CustomerMessageView>> messages(
+    public Result<ConversationModels.MessagePage> messages(
             @PathVariable Long projectId,
             @RequestParam(required = false) Long beforeMessageId,
             @RequestParam(defaultValue = "20") long size) {
         return Result.success(conversationService.customerMessages(projectId, beforeMessageId, size));
+    }
+
+    @Operation(summary = "发送项目会话消息")
+    @PostMapping("/messages")
+    public Result<ConversationModels.CustomerMessageView> sendMessage(
+            @PathVariable Long projectId,
+            @RequestBody ConversationModels.SendMessageRequest request) {
+        return Result.success(conversationService.appendAsCurrentUser(
+                new ConversationModels.CurrentUserAppendCommand(
+                        projectId, request.content(), request.replyToMessageId(),
+                        request.correctionMessageId(), request.clientMessageId(), request.fileAssetIds())));
     }
 }

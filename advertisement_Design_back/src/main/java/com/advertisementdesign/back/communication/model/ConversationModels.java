@@ -65,7 +65,38 @@ public final class ConversationModels {
         }
     }
 
-    public record AttachmentView(Long id, Long fileAssetId, Integer displayOrder, LocalDateTime createdAt) {
+    public record AttachmentView(
+            Long id,
+            Long fileAssetId,
+            Integer displayOrder,
+            String name,
+            String mimeType,
+            Long size,
+            String downloadPath,
+            LocalDateTime createdAt
+    ) {
+    }
+
+    public record MessagePage(
+            List<CustomerMessageView> items,
+            Long nextBeforeMessageId,
+            boolean hasMore
+    ) {
+        public MessagePage {
+            items = items == null ? List.of() : List.copyOf(items);
+        }
+    }
+
+    public record SendMessageRequest(
+            String content,
+            Long replyToMessageId,
+            Long correctionMessageId,
+            String clientMessageId,
+            List<Long> fileAssetIds
+    ) {
+        public SendMessageRequest {
+            fileAssetIds = fileAssetIds == null ? List.of() : List.copyOf(fileAssetIds);
+        }
     }
 
     public record ReadStateView(
@@ -80,7 +111,6 @@ public final class ConversationModels {
 
     public record CurrentUserAppendCommand(
             Long projectId,
-            MessageType messageType,
             String content,
             Long replyToMessageId,
             Long correctionMessageId,

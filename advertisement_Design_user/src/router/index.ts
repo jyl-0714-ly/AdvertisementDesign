@@ -9,6 +9,7 @@ import PortfolioView from '@/views/PortfolioView.vue'
 import HomeView from '@/views/HomeView.vue'
 import CaseDetailView from '@/views/CaseDetailView.vue'
 import RequirementWorkspaceView from '@/views/RequirementWorkspaceView.vue'
+import ProjectWorkspaceView from '@/views/ProjectWorkspaceView.vue'
 import ServiceDetailView from '@/views/ServiceDetailView.vue'
 import { sanitizeInternalRedirect } from '@/utils/safeRedirect'
 
@@ -26,7 +27,7 @@ const routes = [
       { path: 'projects/:id', component: ProjectView, meta: { title: '项目详情' } },
       { path: 'portfolio', component: PortfolioView, meta: { title: '作品集' } },
       { path: 'workspace/new', name: 'workspace-new', component: RequirementWorkspaceView, meta: { title: '新需求', layout: 'workspace' } },
-      { path: 'workspace/:projectId', name: 'workspace-project', component: RequirementWorkspaceView, meta: { title: '项目沟通', layout: 'workspace' } },
+      { path: 'workspace/:projectId', name: 'workspace-project', component: ProjectWorkspaceView, meta: { title: '项目沟通', layout: 'workspace' } },
       { path: 'profile', component: ProfileView, meta: { title: '我的' } }
     ]
   }

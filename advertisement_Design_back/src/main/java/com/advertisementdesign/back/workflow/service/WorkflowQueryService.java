@@ -5,12 +5,15 @@ import com.advertisementdesign.back.common.exception.ApiException;
 import com.advertisementdesign.back.project.service.ProjectAuthorizationService;
 import com.advertisementdesign.back.project.service.ProjectQueryService;
 import com.advertisementdesign.back.workflow.converter.WorkflowConverter;
+import com.advertisementdesign.back.workflow.enums.StageCode;
+import com.advertisementdesign.back.workflow.enums.StageStatus;
 import com.advertisementdesign.back.workflow.model.WorkflowModels;
 import com.advertisementdesign.back.workflow.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,35 @@ public class WorkflowQueryService {
         requireProject(projectId);
         requireFullAccess(projectId);
         return repository.findStages(projectId).stream().map(converter::toStage).toList();
+    }
+
+    public WorkflowModels.CurrentStageWorkspaceView currentStage(Long projectId) {
+        requireProject(projectId);
+        requireFullAccess(projectId);
+        WorkflowModels.StageInstanceView current = repository.findStages(projectId).stream()
+                .map(converter::toStage)
+                .filter(stage -> stage.status() != StageStatus.NOT_STARTED && stage.status() != StageStatus.COMPLETED)
+                .findFirst()
+                .orElseGet(() -> repository.findStages(projectId).stream().map(converter::toStage)
+                        .filter(stage -> stage.status() == StageStatus.COMPLETED)
+                        .reduce((first, second) -> second)
+                        .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND)));
+        return new WorkflowModels.CurrentStageWorkspaceView(
+                current, allowedActions(projectId, current.stageCode(), current.status()), List.of(), List.of());
+    }
+
+    private Set<String> allowedActions(Long projectId, StageCode stageCode, StageStatus status) {
+        if (status == StageStatus.COMPLETED || status == StageStatus.SUSPENDED) return Set.of();
+        ProjectAuthorizationService.ProjectAction action = switch (stageCode) {
+            case REQUIREMENT_GUIDE -> ProjectAuthorizationService.ProjectAction.CONFIRM_REQUIREMENT;
+            case CONTRACT_PREPAYMENT -> ProjectAuthorizationService.ProjectAction.SIGN_CONTRACT;
+            case RESEARCH_REPORT -> ProjectAuthorizationService.ProjectAction.CONFIRM_REPORT;
+            case SKETCH_STYLE, REVIEW_FINAL -> ProjectAuthorizationService.ProjectAction.CONFIRM_DESIGN;
+            case DELIVERY_FINAL_PAYMENT -> ProjectAuthorizationService.ProjectAction.RECEIVE_DELIVERY;
+            case AFTER_SALE_REPURCHASE -> null;
+        };
+        return action != null && authorizationService.authorize(projectId, action).allowed()
+                ? Set.of(action.name()) : Set.of();
     }
 
     public List<WorkflowModels.StageEventView> history(Long projectId, Long stageInstanceId) {

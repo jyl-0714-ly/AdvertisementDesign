@@ -6,6 +6,8 @@ import com.advertisementdesign.back.workflow.enums.StageEventType;
 import com.advertisementdesign.back.workflow.enums.StageStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 public final class WorkflowModels {
     private WorkflowModels() {
@@ -18,6 +20,19 @@ public final class WorkflowModels {
             Long id, Long projectId, StageCode stageCode, String stageName, Integer sortOrder,
             StageStatus status, Integer activationCount, LocalDateTime activatedAt,
             LocalDateTime completedAt, Long version) {
+    }
+
+    public record CurrentStageWorkspaceView(
+            StageInstanceView stage,
+            Set<String> allowedActions,
+            List<Object> versions,
+            List<Object> materials
+    ) {
+        public CurrentStageWorkspaceView {
+            allowedActions = allowedActions == null ? Set.of() : Set.copyOf(allowedActions);
+            versions = versions == null ? List.of() : List.copyOf(versions);
+            materials = materials == null ? List.of() : List.copyOf(materials);
+        }
     }
 
     public record StageEventView(

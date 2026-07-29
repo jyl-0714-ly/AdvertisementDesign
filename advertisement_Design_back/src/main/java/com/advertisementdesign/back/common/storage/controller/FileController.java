@@ -48,6 +48,15 @@ public class FileController {
         return Result.success(fileService.upload(file, StorageScene.FIRST_REQUIREMENT_DRAFT));
     }
 
+    @Operation(
+            summary = "上传项目消息草稿附件",
+            description = "校验当前用户项目发言权限，创建绑定当前组织的消息草稿；发送消息时再原子认领到项目")
+    @PostMapping(value = "/projects/{projectId}/conversation/message-drafts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<FileModels.CustomerSafeFileMetadata> uploadProjectMessageDraft(
+            @PathVariable Long projectId, @RequestPart("file") MultipartFile file) {
+        return Result.success(fileService.uploadProjectMessageDraft(projectId, file));
+    }
+
     @Operation(summary = "文件详情")
     @GetMapping("/files/{fileId}")
     public Result<FileModels.FileAssetVO> detail(@PathVariable Long fileId) {

@@ -1,0 +1,13 @@
+<template><section class="project-conversation-pane"><header><div><small>{{ statusText }}</small><h1>{{ projection.project.name }}</h1></div><span>{{ currentStage?.stageName || '项目准备中' }}</span></header><MessageList :messages="state.messages" :has-more="state.hasMore" :loading-older="state.loadingOlder" :error="state.messageError" @load-older="emit('load-older')"/><MessageComposer v-model="state.composerText" :attachments="state.attachments" :sending="state.sending" :error="state.messageError" @files="emit('files',$event)" @retry="emit('retry',$event)" @remove="emit('remove',$event)" @send="emit('send')"/></section></template>
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { ProjectWorkspaceProjection } from '@/modules/project/types'
+import type { ProjectWorkspaceState } from '@/stores/projectWorkspace'
+import MessageList from './MessageList.vue'
+import MessageComposer from './MessageComposer.vue'
+const props = defineProps<{ projection: ProjectWorkspaceProjection; state: ProjectWorkspaceState }>()
+const emit = defineEmits<{ 'load-older': []; files: [files: File[]]; retry: [id: string]; remove: [id: string]; send: [] }>()
+const currentStage = computed(() => props.projection.stages.find(item => item.status === 'IN_PROGRESS' || item.status === 'ACTIVE') || props.projection.stages.find(item => item.status !== 'COMPLETED'))
+const statusText = computed(() => ({ ACTIVE: '项目进行中', PAUSED: '项目已暂停', COMPLETED: '项目已完成', TERMINATED: '项目已终止' } as Record<string,string>)[props.projection.project.status] || '项目服务中')
+</script>
+<style scoped>.project-conversation-pane{min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:#fff}.project-conversation-pane>header{min-height:66px;padding:12px clamp(22px,4vw,54px);border-bottom:1px solid #e6e8e4;display:flex;align-items:center;justify-content:space-between;gap:18px}.project-conversation-pane>header div{min-width:0;display:grid;gap:2px}.project-conversation-pane>header small{color:#8c5e33;font-size:10px;font-weight:700}.project-conversation-pane h1{margin:0;overflow:hidden;font-size:16px;text-overflow:ellipsis;white-space:nowrap}.project-conversation-pane>header>span{flex:none;padding:5px 8px;border-radius:6px;background:#f2f3f0;color:#646b66;font-size:10px}</style>

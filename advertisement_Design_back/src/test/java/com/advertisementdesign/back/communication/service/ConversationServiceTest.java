@@ -8,7 +8,9 @@ import com.advertisementdesign.back.communication.enums.MessageSendSource;
 import com.advertisementdesign.back.communication.enums.MessageType;
 import com.advertisementdesign.back.communication.model.ConversationModels;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
+import com.advertisementdesign.back.common.audit.service.AuditLogWriter;
 import com.advertisementdesign.back.common.exception.ApiException;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.identity.enums.UserRole;
 import com.advertisementdesign.back.identity.enums.UserStatus;
 import com.advertisementdesign.back.identity.model.ActorRef;
@@ -46,6 +48,8 @@ class ConversationServiceTest {
     @Mock private ProjectQueryService projectQueryService;
     @Mock private CurrentActorProvider currentActorProvider;
     @Mock private CurrentUserProfileProvider currentUserProfileProvider;
+    @Mock private FileService fileService;
+    @Mock private AuditLogWriter auditLogWriter;
 
     @Test
     void currentCustomerAppendDerivesActorSourceIdentityAndAuthorizationEvidence() throws Exception {
@@ -69,13 +73,19 @@ class ConversationServiceTest {
             return invocation.getArgument(0);
         }).when(repository).appendMessage(any(MessageEntity.class), any());
         when(repository.listAttachments(99L)).thenReturn(List.of());
+        when(repository.findMessage(88L, 99L)).thenAnswer(invocation -> Optional.of(
+                MessageEntity.builder().id(99L).conversationId(88L).messageType(MessageType.TEXT)
+                        .content("新需求").customerDisplayIdentity("可信客户名")
+                        .actorType(ActorRef.ActorType.CUSTOMER_USER).actorId(7L)
+                        .sendSource(MessageSendSource.CUSTOMER_UI).clientMessageId("client-1")
+                        .sentAt(LocalDateTime.now()).build()));
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, objectMapper);
+                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter, objectMapper);
 
         service.appendAsCurrentUser(new ConversationModels.CurrentUserAppendCommand(
-                101L, MessageType.TEXT, "新需求", null, null, "client-1", List.of()));
+                101L, "新需求", null, null, "client-1", List.of()));
 
         ArgumentCaptor<MessageEntity> messageCaptor = ArgumentCaptor.forClass(MessageEntity.class);
         verify(repository).appendMessage(messageCaptor.capture(), any());
@@ -91,6 +101,29 @@ class ConversationServiceTest {
     }
 
     @Test
+    void messagePageUsesExtraRowForStableCursorAndHasMore() {
+        when(authorizationService.authorize(101L, ProjectAuthorizationService.ProjectAction.VIEW_FULL))
+                .thenReturn(new ProjectAuthorizationService.AuthorizationDecision(true, null, null));
+        when(repository.findConversationByProjectId(101L)).thenReturn(Optional.of(
+                ConversationEntity.builder().id(88L).projectId(101L).build()));
+        when(repository.listMessages(88L, 200L, 3L)).thenReturn(List.of(
+                MessageEntity.builder().id(199L).conversationId(88L).messageType(MessageType.TEXT).content("a").sentAt(LocalDateTime.now()).build(),
+                MessageEntity.builder().id(198L).conversationId(88L).messageType(MessageType.TEXT).content("b").sentAt(LocalDateTime.now()).build(),
+                MessageEntity.builder().id(197L).conversationId(88L).messageType(MessageType.TEXT).content("c").sentAt(LocalDateTime.now()).build()));
+        when(repository.listAttachments(any())).thenReturn(List.of());
+        ConversationService service = new ConversationService(
+                repository, new ConversationConverter(), authorizationService, projectQueryService,
+                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                new ObjectMapper().findAndRegisterModules());
+
+        ConversationModels.MessagePage page = service.customerMessages(101L, 200L, 2L);
+
+        assertEquals(List.of(199L, 198L), page.items().stream().map(ConversationModels.CustomerMessageView::id).toList());
+        assertEquals(198L, page.nextBeforeMessageId());
+        assertEquals(true, page.hasMore());
+    }
+
+    @Test
     void trustedAppendRejectsAuthorizationEvidenceForAnotherActor() {
         ActorRef actor = new ActorRef(ActorRef.ActorType.DESIGNER_USER, 7L);
         ActorRef fabricatedBasisActor = new ActorRef(ActorRef.ActorType.DESIGNER_USER, 8L);
@@ -103,7 +136,8 @@ class ConversationServiceTest {
                 ConversationEntity.builder().id(88L).projectId(101L).status(ConversationStatus.ACTIVE).version(0L).build()));
         ConversationService service = new ConversationService(
                 repository, new ConversationConverter(), authorizationService, projectQueryService,
-                currentActorProvider, currentUserProfileProvider, new ObjectMapper().findAndRegisterModules());
+                currentActorProvider, currentUserProfileProvider, fileService, auditLogWriter,
+                new ObjectMapper().findAndRegisterModules());
 
         ApiException exception = assertThrows(ApiException.class, () -> service.appendTrustedInternal(
                 new ConversationModels.TrustedInternalAppendCommand(

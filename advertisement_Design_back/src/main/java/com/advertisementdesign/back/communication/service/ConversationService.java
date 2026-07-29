@@ -1,11 +1,16 @@
 package com.advertisementdesign.back.communication.service;
 
+import com.advertisementdesign.back.common.audit.entity.AuditLogEntity;
+import com.advertisementdesign.back.common.audit.service.AuditLogWriter;
 import com.advertisementdesign.back.common.exception.ApiErrorCode;
 import com.advertisementdesign.back.common.exception.ApiException;
+import com.advertisementdesign.back.common.storage.model.FileModels;
+import com.advertisementdesign.back.common.storage.service.FileService;
 import com.advertisementdesign.back.communication.converter.ConversationConverter;
 import com.advertisementdesign.back.communication.entity.ConversationEntity;
 import com.advertisementdesign.back.communication.entity.MessageEntity;
 import com.advertisementdesign.back.communication.enums.MessageSendSource;
+import com.advertisementdesign.back.communication.enums.MessageType;
 import com.advertisementdesign.back.communication.model.ConversationModels;
 import com.advertisementdesign.back.communication.repository.CommunicationRepository;
 import com.advertisementdesign.back.identity.model.ActorRef;
@@ -22,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -33,6 +39,8 @@ public class ConversationService {
     private final ProjectQueryService projectQueryService;
     private final CurrentActorProvider currentActorProvider;
     private final CurrentUserProfileProvider currentUserProfileProvider;
+    private final FileService fileService;
+    private final AuditLogWriter auditLogWriter;
     private final ObjectMapper objectMapper;
 
     public ConversationModels.ConversationView conversation(Long projectId) {
@@ -40,13 +48,19 @@ public class ConversationService {
         return converter.toConversation(requireConversation(projectId));
     }
 
-    public List<ConversationModels.CustomerMessageView> customerMessages(
+    public ConversationModels.MessagePage customerMessages(
             Long projectId, Long beforeMessageId, long size) {
         requireProjectAccess(projectId);
         ConversationEntity conversation = requireConversation(projectId);
-        return repository.listMessages(conversation.getId(), beforeMessageId, size).stream()
-                .map(message -> converter.toCustomerMessage(message, repository.listAttachments(message.getId())))
+        int pageSize = (int) Math.max(1, Math.min(size, 100));
+        List<MessageEntity> rows = repository.listMessages(conversation.getId(), beforeMessageId, pageSize + 1L);
+        boolean hasMore = rows.size() > pageSize;
+        List<MessageEntity> pageRows = hasMore ? rows.subList(0, pageSize) : rows;
+        List<ConversationModels.CustomerMessageView> items = pageRows.stream()
+                .map(this::toCustomerMessage)
                 .toList();
+        Long nextCursor = hasMore && !pageRows.isEmpty() ? pageRows.get(pageRows.size() - 1).getId() : null;
+        return new ConversationModels.MessagePage(items, nextCursor, hasMore);
     }
 
     /**
@@ -54,7 +68,7 @@ public class ConversationService {
      * evidence are derived here and cannot be asserted by the caller.
      */
     @Transactional
-    public ConversationModels.InternalMessageView appendAsCurrentUser(
+    public ConversationModels.CustomerMessageView appendAsCurrentUser(
             ConversationModels.CurrentUserAppendCommand command) {
         CurrentActorProvider.CurrentActor currentActor = currentActorProvider.requireCurrentActor();
         ProjectAuthorizationService.AuthorizationDecision decision = authorizationService.authorize(
@@ -65,10 +79,25 @@ public class ConversationService {
         String displayIdentity = currentActor.actor().type() == ActorRef.ActorType.CUSTOMER_USER
                 ? requireCustomerIdentity(currentUserProfileProvider.currentUserProfile().nickname())
                 : ConversationModels.SERVICE_TEAM_IDENTITY;
-        return appendTrustedInternal(new ConversationModels.TrustedInternalAppendCommand(
-                command.projectId(), command.messageType(), command.content(), displayIdentity,
-                currentActor.actor(), sourceFor(currentActor.actor()), decision.basis(), command.replyToMessageId(),
-                command.correctionMessageId(), command.clientMessageId(), command.fileAssetIds(), null));
+        ProjectModels.ProjectContextView context = projectQueryService.findContext(command.projectId())
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
+        ConversationEntity conversation = requireConversation(context.projectId());
+        String clientMessageId = requireClientMessageId(command.clientMessageId());
+        var existing = repository.findMessageByClientMessageId(conversation.getId(), clientMessageId);
+        if (existing.isPresent()) {
+            return toCustomerMessage(existing.get());
+        }
+        fileService.claimProjectMessageDrafts(
+                context.projectId(), context.organizationId(), currentActor.actor(), command.fileAssetIds());
+        ConversationModels.InternalMessageView appended = appendValidated(
+                new ConversationModels.TrustedInternalAppendCommand(
+                        command.projectId(), customerMessageType(command.content(), command.fileAssetIds()),
+                        normalizedContent(command.content()), displayIdentity,
+                        currentActor.actor(), sourceFor(currentActor.actor()), decision.basis(), command.replyToMessageId(),
+                        command.correctionMessageId(), clientMessageId, command.fileAssetIds(), null));
+        auditMessage(command.projectId(), appended, currentActor.actor(), displayIdentity, decision.basis());
+        return toCustomerMessage(repository.findMessage(conversation.getId(), appended.id())
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND)));
     }
 
     /**
@@ -78,6 +107,15 @@ public class ConversationService {
      */
     @Transactional
     public ConversationModels.InternalMessageView appendTrustedInternal(
+            ConversationModels.TrustedInternalAppendCommand command) {
+        if (!command.fileAssetIds().isEmpty()) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(),
+                    "附件必须通过已校验草稿所有权、文件状态和项目关系的附件命令发送");
+        }
+        return appendValidated(command);
+    }
+
+    private ConversationModels.InternalMessageView appendValidated(
             ConversationModels.TrustedInternalAppendCommand command) {
         ProjectModels.ProjectContextView context = projectQueryService.findContext(command.projectId())
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND));
@@ -107,12 +145,8 @@ public class ConversationService {
         if (command.actor().type() == ActorRef.ActorType.CUSTOMER_USER) {
             requireCustomerIdentity(command.customerDisplayIdentity());
         }
-        if (!command.fileAssetIds().isEmpty()) {
-            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(),
-                    "附件必须通过已校验草稿所有权、文件状态和项目关系的附件命令发送");
-        }
-        if (command.content() == null || command.content().isBlank()) {
-            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "消息正文不能为空");
+        if ((command.content() == null || command.content().isBlank()) && command.fileAssetIds().isEmpty()) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "消息正文和附件不能同时为空");
         }
         validateTarget(conversation.getId(), command.replyToMessageId());
         validateTarget(conversation.getId(), command.correctionMessageId());
@@ -167,6 +201,59 @@ public class ConversationService {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Unable to serialize authorization basis", exception);
         }
+    }
+
+    private ConversationModels.CustomerMessageView toCustomerMessage(MessageEntity message) {
+        var attachments = repository.listAttachments(message.getId()).stream().map(attachment -> {
+            FileModels.CustomerSafeFileMetadata file = fileService.customerSafeMetadata(attachment.getFileAssetId());
+            return new ConversationModels.AttachmentView(
+                    attachment.getId(), attachment.getFileAssetId(), attachment.getDisplayOrder(),
+                    file.name(), file.mimeType(), file.size(), file.downloadPath(), attachment.getCreatedAt());
+        }).toList();
+        return converter.toCustomerMessageView(message, attachments);
+    }
+
+    private MessageType customerMessageType(String content, List<Long> fileAssetIds) {
+        boolean hasContent = content != null && !content.isBlank();
+        boolean hasFiles = fileAssetIds != null && !fileAssetIds.isEmpty();
+        if (hasContent && hasFiles) return MessageType.MIXED;
+        if (hasFiles) return MessageType.FILE;
+        return MessageType.TEXT;
+    }
+
+    private String normalizedContent(String content) {
+        return content == null || content.isBlank() ? null : content.strip();
+    }
+
+    private String requireClientMessageId(String clientMessageId) {
+        if (clientMessageId == null || clientMessageId.isBlank() || clientMessageId.strip().length() > 128) {
+            throw new ApiException(ApiErrorCode.BAD_REQUEST.getCode(), "clientMessageId 不能为空且长度不能超过 128");
+        }
+        return clientMessageId.strip();
+    }
+
+    private void auditMessage(Long projectId,
+                              ConversationModels.InternalMessageView message,
+                              ActorRef actor,
+                              String displayIdentity,
+                              ProjectAuthorizationService.AuthorizationBasis basis) {
+        auditLogWriter.append(new AuditLogWriter.Entry(
+                projectId, actor, displayIdentity, auditSource(message.sendSource()), "MESSAGE", message.id(), null,
+                "PROJECT_MESSAGE_SENT", objectMapper.convertValue(basis, Map.class), Map.of(),
+                Map.of("conversationId", message.conversationId(), "attachmentCount", message.attachments().size()),
+                AuditLogEntity.Result.SUCCESS, null, "message:" + message.clientMessageId(),
+                "message:" + message.clientMessageId(), message.sentAt()));
+    }
+
+    private AuditLogEntity.Source auditSource(MessageSendSource source) {
+        return switch (source) {
+            case CUSTOMER_UI -> AuditLogEntity.Source.CUSTOMER_UI;
+            case DESIGNER_UI -> AuditLogEntity.Source.DESIGNER_UI;
+            case ADMIN_UI -> AuditLogEntity.Source.ADMIN_UI;
+            case AUTOMATION -> AuditLogEntity.Source.AUTOMATION;
+            case EXTERNAL_EVENT -> AuditLogEntity.Source.EXTERNAL_EVENT;
+            case SYSTEM -> AuditLogEntity.Source.SYSTEM;
+        };
     }
 
     private String requireCustomerIdentity(String identity) {
